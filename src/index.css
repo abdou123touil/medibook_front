@@ -1,0 +1,24 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* Custom scrollbar styling */
+::-webkit-scrollbar {
+    width: 6px; /* Thin scrollbar */
+  }
+  
+  ::-webkit-scrollbar-thumb {
+    background-color: #a0aec0; /* Gray thumb */
+    border-radius: 10px; /* Rounded edges */
+  }
+  
+  ::-webkit-scrollbar-track {
+    background: transparent; /* Transparent track */
+  }
+  
+  ::-webkit-scrollbar-button {
+    display: none; /* Hide top and bottom arrows */
+  }
+  .leaflet-container {
+    width: 100%;
+    height: 100%;
+  }
