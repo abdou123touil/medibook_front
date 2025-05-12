@@ -2,6 +2,8 @@ import React, { useState, useEffect } from "react";
 import { Search, Calendar, Clock } from "lucide-react";
 import { BookingModal } from "../components/BookingModal";
 import { ReviewModal } from "../components/ReviewModal";
+import DoctorSkeleton from "../components/DoctorSkeleton"; // Import du Skeleton
+import { useTranslation } from "react-i18next";
 
 const specialties = [
   "Dentiste",
@@ -39,16 +41,20 @@ export function ClientDashboard() {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const response = await fetch("http://localhost:3000/api/users/doctors"); // Remplacez par votre URL backend
+        const response = await fetch("http://localhost:3000/api/users/doctors");
         if (!response.ok) {
           throw new Error("Erreur lors de la récupération des médecins.");
         }
         const data = await response.json();
-        setDoctors(data);
+        setTimeout(() => {
+          setDoctors(data);
+          setLoading(false);
+        }, 1000); // Attendre 1 seconde avant de masquer le loader
       } catch (error) {
-        setError(error.message);
-      } finally {
-        setLoading(false);
+        setTimeout(() => {
+          setError(error.message);
+          setLoading(false);
+        }, 1000); // Même délai pour l'erreur
       }
     };
 
@@ -80,10 +86,20 @@ export function ClientDashboard() {
     <div className="container mx-auto px-4 py-8">
       <div className="grid md:grid-cols-12 gap-6">
         {/* Filtres */}
-        <div className="md:col-span-3 space-y-6">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+        <div className="md:col-span-3  space-y-6">
+          <div className="bg-white dark:bg-gray-900 border rounded-xl shadow-lg p-6">
             <h2 className="text-lg font-semibold mb-4">Spécialités</h2>
             <div className="space-y-2">
+              <button
+                onClick={() => setSelectedSpecialty("")}
+                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
+                  selectedSpecialty === ""
+                    ? "bg-indigo-100 text-indigo-700"
+                    : "hover:bg-gray-100 hover:text-indigo-700"
+                }`}
+              >
+                Toutes les spécialités
+              </button>
               {specialties.map((specialty) => (
                 <button
                   key={specialty}
@@ -91,7 +107,7 @@ export function ClientDashboard() {
                   className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
                     selectedSpecialty === specialty
                       ? "bg-indigo-100 text-indigo-700"
-                      : "hover:bg-gray-100"
+                      : "hover:bg-gray-100 hover:text-indigo-700"
                   }`}
                 >
                   {specialty}
@@ -103,14 +119,14 @@ export function ClientDashboard() {
 
         {/* Liste des médecins */}
         <div className="md:col-span-9">
-          <div className="bg-white rounded-xl shadow-lg p-6">
+          <div className="bg-white border dark:bg-gray-900 rounded-xl shadow-lg p-6">
             <div className="flex items-center gap-4 mb-6">
               <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-gray-400 w-5 h-5" />
+                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2  text-gray-400 w-5 h-5" />
                 <input
                   type="text"
                   placeholder="Rechercher un médecin..."
-                  className="w-full pl-10 pr-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full pl-10 pr-4 py-2 rounded-lg dark:bg-gray-900 border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                 />
@@ -118,17 +134,32 @@ export function ClientDashboard() {
             </div>
 
             {loading ? (
-              <p className="text-center text-gray-500">
-                Chargement des médecins...
-              </p>
-            ) : error ? (
-              <p className="text-center text-red-500">{error}</p>
+            
+              <div className="text-center py-12">
+                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
+                <p className="mt-4 text-gray-600">Chargement des médecins...</p>
+              </div>
+            ) : filteredDoctors.length === 0 ? (
+            
+              <div className="text-center py-12">
+                <p className="text-gray-600">
+                  {selectedSpecialty
+                    ? `Aucun médecin trouvé pour la spécialité "${selectedSpecialty}"`
+                    : "Aucun médecin trouvé"}
+                </p>
+                <div className="grid md:grid-cols-2 gap-4 mt-4">
+                  {[...Array(4)].map((_, index) => (
+                    <DoctorSkeleton key={index} />
+                  ))}
+                </div>
+              </div>
             ) : (
+             
               <div className="grid md:grid-cols-2 gap-4">
                 {filteredDoctors.map((doctor) => (
                   <div
                     key={doctor._id}
-                    className="bg-white border rounded-lg p-6 hover:shadow-lg transition-shadow"
+                    className="bg-white dark:bg-gray-900 border rounded-lg p-6 hover:shadow-lg transition-shadow"
                   >
                     <div className="flex items-start justify-between">
                       <div>
@@ -156,16 +187,16 @@ export function ClientDashboard() {
                         setSelectedDoctor(doctor);
                         setIsBookingModalOpen(true);
                       }}
-                      className="mt-4 w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                      className="mt-4 w-full bg-indigo-600  text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
                     >
                       Prendre rendez-vous
                     </button>
                     <button
                       onClick={() => {
                         setSelectedDoctorId(doctor._id);
-                        setTimeout(() => setIsReviewModalOpen(true), 0); // Ensure state updates before modal renders
+                        setTimeout(() => setIsReviewModalOpen(true), 0);
                       }}
-                      className="w-full bg-gray-100 text-indigo-600 py-2 rounded-lg hover:bg-gray-200 transition-colors"
+                      className="w-full dark:bg-gray-600 bg-gray-100 dark:text-white text-indigo-600 py-2 rounded-lg hover:bg-gray-200 transition-colors"
                     >
                       Voir Avis
                     </button>
@@ -178,6 +209,7 @@ export function ClientDashboard() {
       </div>
 
       {selectedDoctor && (
+        
         <BookingModal
           isOpen={isBookingModalOpen}
           onClose={() => setIsBookingModalOpen(false)}
@@ -185,9 +217,12 @@ export function ClientDashboard() {
           onBookAppointment={handleBookAppointment}
         />
       )}
+      
       <ReviewModal
         isOpen={isReviewModalOpen}
         onClose={() => {
+           localStorage.removeItem(
+                "cachedReactions");
           setIsReviewModalOpen(false);
           setSelectedDoctorId(null); // Reset selectedDoctorId when closing
         }}

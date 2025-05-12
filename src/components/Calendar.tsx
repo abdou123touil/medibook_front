@@ -1,7 +1,6 @@
 import React from 'react';
-import { format, startOfWeek, addDays, isSameDay } from 'date-fns';
+import { format, isSameDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Calendar as CalendarIcon, Clock } from 'lucide-react';
 import clsx from 'clsx';
 
 interface CalendarProps {
@@ -10,59 +9,79 @@ interface CalendarProps {
   onDateSelect: (date: Date) => void;
   onTimeSelect: (time: string) => void;
   selectedTime: string | null;
+  isSlotBooked?: (time: string) => boolean; // Optional prop to check booked slots
 }
 
-export function Calendar({ selectedDate, availableSlots, onDateSelect, onTimeSelect, selectedTime }: CalendarProps) {
-  const startDate = startOfWeek(new Date(), { locale: fr });
-  const weekDays = [...Array(14)].map((_, i) => addDays(startDate, i));
+export function Calendar({
+  selectedDate,
+  availableSlots,
+  onDateSelect,
+  onTimeSelect,
+  selectedTime,
+  isSlotBooked = () => false, // Default to false if not provided
+}: CalendarProps) {
+  // Mock calendar implementation (replace with your actual calendar logic)
+  const handleDateClick = (date: Date) => {
+    onDateSelect(date);
+  };
+
+  // Generate dates for the next 14 days (example)
+  const startDate = new Date();
+  const dates = [...Array(14)].map((_, i) => {
+    const date = new Date(startDate);
+    date.setDate(startDate.getDate() + i);
+    return date;
+  });
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
-      <div className="mb-6">
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <CalendarIcon className="w-5 h-5 text-indigo-600" />
-          Sélectionnez une date
-        </h3>
-        <div className="grid grid-cols-7 gap-2">
-          {weekDays.map((date) => (
-            <button
-              key={date.toISOString()}
-              onClick={() => onDateSelect(date)}
-              className={clsx(
-                "p-2 rounded-lg text-sm font-medium transition-colors",
-                isSameDay(date, selectedDate)
-                  ? "bg-indigo-600 text-white"
-                  : "hover:bg-indigo-50"
-              )}
-            >
-              <div className="text-xs mb-1">{format(date, 'EEE', { locale: fr })}</div>
-              <div>{format(date, 'd', { locale: fr })}</div>
-            </button>
-          ))}
-        </div>
+    <div className="space-y-4">
+      {/* Date Picker */}
+      <div className="grid grid-cols-7 gap-2">
+        {dates.map((date) => (
+          <button
+            key={date.toISOString()}
+            onClick={() => handleDateClick(date)}
+            className={clsx(
+              'p-2 rounded-lg text-sm font-medium transition-colors',
+              isSameDay(date, selectedDate)
+                ? 'bg-indigo-600 text-white'
+                : 'hover:bg-indigo-50'
+            )}
+          >
+            <div className="text-xs mb-1">{format(date, 'EEE', { locale: fr })}</div>
+            <div>{format(date, 'd', { locale: fr })}</div>
+          </button>
+        ))}
       </div>
 
+      {/* Time Slots */}
       <div>
-        <h3 className="text-lg font-semibold mb-4 flex items-center gap-2">
-          <Clock className="w-5 h-5 text-indigo-600" />
-          Créneaux disponibles
+        <h3 className="text-sm font-medium mb-2">
+          Créneaux disponibles pour le {format(selectedDate, 'EEEE d MMMM', { locale: fr })}
         </h3>
-        <div className="grid grid-cols-4 gap-2">
-          {availableSlots.map((time) => (
-            <button
-              key={time}
-              onClick={() => onTimeSelect(time)}
-              className={clsx(
-                "p-2 rounded-lg text-sm font-medium transition-colors",
-                time === selectedTime
-                  ? "bg-indigo-600 text-white"
-                  : "hover:bg-indigo-50"
-              )}
-            >
-              {time}
-            </button>
-          ))}
-        </div>
+        {availableSlots.length === 0 ? (
+          <p className="text-gray-500">Aucun créneau disponible</p>
+        ) : (
+          <div className="grid grid-cols-4 gap-2">
+            {availableSlots.map((time) => (
+              <button
+                key={time}
+                onClick={() => onTimeSelect(time)}
+                disabled={isSlotBooked(time)}
+                className={clsx(
+                  'p-2 rounded-lg text-sm font-medium transition-colors',
+                  selectedTime === time
+                    ? 'bg-indigo-600 text-white'
+                    : isSlotBooked(time)
+                    ? 'bg-gray-200 text-gray-500 opacity-50 cursor-not-allowed'
+                    : 'border border-gray-200 hover:bg-indigo-50'
+                )}
+              >
+                {time}
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

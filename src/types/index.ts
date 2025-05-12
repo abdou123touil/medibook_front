@@ -22,5 +22,5 @@ export type Appointment = {
   date: string;
   time: string;
   symptoms: string;
-  status: 'pending' | 'completed' | 'cancelled';
+  status: 'pending' | 'accepted' | 'completed' | 'cancelled';
 };

@@ -1,0 +1,8 @@
+{
+  "appId": "com.ionic.medicalbookingapp",
+  "appName": "medical-booking-app",
+  "bundledWebRuntime": false,
+  "npmClient": "npm",
+  "webDir": "dist",
+  "cordova": {}
+}
