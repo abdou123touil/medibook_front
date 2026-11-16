@@ -15,6 +15,11 @@ interface AvailabilityManagerProps {
 export function AvailabilityManager({ onUpdateAvailability, appointments }: AvailabilityManagerProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [availability, setAvailability] = useState<{ [key: string]: string[] }>({});
+  const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
+  const [absenceStartDate, setAbsenceStartDate] = useState('');
+  const [absenceEndDate, setAbsenceEndDate] = useState('');
+  const [absenceReason, setAbsenceReason] = useState('');
+  const [isSavingAbsence, setIsSavingAbsence] = useState(false);
   const { user } = useAuthStore();
 
   const startDate = startOfWeek(new Date(), { locale: fr });
@@ -124,43 +129,41 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     }
   };
 
-  // Block an entire day
-  const blockDay = async () => {
-    const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    const updatedAvailability = { ...availability };
-    delete updatedAvailability[dateKey];
+  const openAbsenceModal = () => {
+    const dateKey = format(selectedDate < new Date() ? new Date() : selectedDate, 'yyyy-MM-dd');
+    setAbsenceStartDate(dateKey);
+    setAbsenceEndDate(dateKey);
+    setAbsenceReason('');
+    setIsAbsenceModalOpen(true);
+  };
 
-    setAvailability(updatedAvailability);
-    onUpdateAvailability(updatedAvailability);
-
+  const saveAbsence = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!absenceStartDate || !absenceEndDate || absenceStartDate > absenceEndDate || isSavingAbsence) return;
+    setIsSavingAbsence(true);
     try {
       const token = localStorage.getItem('token');
-      const userId = user?.data?.id;
-      const response = await fetch('http://localhost:3000/api/users/update-availability', {
-        method: 'PUT',
+      const response = await fetch('http://localhost:3000/api/users/doctor-absence', {
+        method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+          Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          userId,
-          availability: updatedAvailability,
-        }),
+        body: JSON.stringify({ startDate: absenceStartDate, endDate: absenceEndDate, reason: absenceReason.trim() }),
       });
-
       const data = await response.json();
-      if (response.ok) {
-        toast.success('Journée bloquée avec succès.');
-      } else {
-        toast.error(data.error || 'Erreur lors du blocage de la journée.');
-        setAvailability(availability);
-        onUpdateAvailability(availability);
-      }
+      if (!response.ok) throw new Error(data.error || 'Impossible d’enregistrer cette absence.');
+      setAvailability(data.availability || {});
+      onUpdateAvailability(data.availability || {});
+      setIsAbsenceModalOpen(false);
+      const count = Number(data.cancelledAppointments) || 0;
+      toast.success(count
+        ? `Absence enregistrée. ${count} patient${count > 1 ? 's ont été prévenus' : ' a été prévenu'}.`
+        : 'Période d’absence enregistrée.');
     } catch (error) {
-      console.error('Erreur lors du blocage de la journée:', error);
-      toast.error('Erreur serveur lors du blocage de la journée.');
-      setAvailability(availability);
-      onUpdateAvailability(availability);
+      toast.error(error instanceof Error ? error.message : 'Impossible d’enregistrer cette absence.');
+    } finally {
+      setIsSavingAbsence(false);
     }
   };
 
@@ -244,6 +247,13 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
 
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
   const selectedDateSlots = availability && availability[selectedDateKey] ? availability[selectedDateKey] : [];
+  const affectedAppointmentsCount = appointments.filter((appointment) => {
+    const appointmentDate = format(new Date(appointment.date), 'yyyy-MM-dd');
+    return !!absenceStartDate && !!absenceEndDate
+      && appointmentDate >= absenceStartDate
+      && appointmentDate <= absenceEndDate
+      && ['pending', 'accepted'].includes(appointment.status);
+  }).length;
 
   return (
     <div className="bg-white dark:bg-gray-900 border rounded-xl shadow-lg p-6">
@@ -283,11 +293,11 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
             Répéter 4 semaines
           </button>
           <button
-            onClick={blockDay}
+            onClick={openAbsenceModal}
             className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
           >
             <Ban className="w-4 h-4" />
-            Bloquer ce jour
+            Bloquer une période
           </button>
         </div>
       </div>
@@ -332,6 +342,43 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
           );
         })}
       </div>
+      {isAbsenceModalOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4" role="presentation">
+          <form onSubmit={saveAbsence} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="doctor-absence-title">
+            <h3 id="doctor-absence-title" className="text-xl font-semibold text-gray-900 dark:text-white">
+              Planifier une absence
+            </h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              Les rendez-vous de cette période seront annulés et les disponibilités retirées. Chaque patient recevra le choix entre reprogrammer ou garder l’annulation.
+            </p>
+            <p className="mt-2 text-sm font-medium text-gray-800 dark:text-gray-100">
+              {affectedAppointmentsCount} rendez-vous concerné{affectedAppointmentsCount > 1 ? 's' : ''}.
+            </p>
+            <div className="mt-4 grid gap-4 sm:grid-cols-2">
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                Du
+                <input type="date" required min={format(new Date(), 'yyyy-MM-dd')} value={absenceStartDate} onChange={(event) => setAbsenceStartDate(event.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+              </label>
+              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+                Au
+                <input type="date" required min={absenceStartDate || format(new Date(), 'yyyy-MM-dd')} value={absenceEndDate} onChange={(event) => setAbsenceEndDate(event.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+              </label>
+            </div>
+            <label htmlFor="absence-reason" className="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-200">
+              Motif (facultatif)
+            </label>
+            <textarea id="absence-reason" value={absenceReason} onChange={(event) => setAbsenceReason(event.target.value)} maxLength={300} rows={3} placeholder="Ex. congé, formation, indisponibilité personnelle" className="mt-1 w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" disabled={isSavingAbsence} onClick={() => setIsAbsenceModalOpen(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                Retour
+              </button>
+              <button type="submit" disabled={isSavingAbsence || !absenceStartDate || !absenceEndDate || absenceStartDate > absenceEndDate} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
+                {isSavingAbsence ? 'Enregistrement…' : 'Confirmer et prévenir les patients'}
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
     </div>
   );
 }

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format, addDays, isWithinInterval, parseISO, parse, formatDistanceToNow, isBefore, isAfter, addMinutes } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { ar, fr } from 'date-fns/locale';
 import {
   Calendar as CalendarIcon,
   Clock,
@@ -26,6 +26,8 @@ import toast from 'react-hot-toast';
 
 interface ExtendedAppointment extends Appointment {
   teleconsultation?: { jitsiUrl: string; status: string };
+  createdAt?: string;
+  cancellationReason?: string | null;
 }
 
 export function DoctorDashboard() {
@@ -41,8 +43,11 @@ export function DoctorDashboard() {
   const [isTeleconsultationModalOpen, setIsTeleconsultationModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<ExtendedAppointment | null>(null);
   const [patientRecordAppointment, setPatientRecordAppointment] = useState<ExtendedAppointment | null>(null);
+  const [appointmentToRefuse, setAppointmentToRefuse] = useState<ExtendedAppointment | null>(null);
+  const [refusalReason, setRefusalReason] = useState('');
   const [isPatientSearchOpen, setIsPatientSearchOpen] = useState(false);
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
+  const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'pending'>('all');
   const today = new Date();
   const futureDate = addDays(today, 14);
 
@@ -92,7 +97,8 @@ export function DoctorDashboard() {
 
       const upcomingAppointments = data.appointments.filter((apt: ExtendedAppointment) => {
         const aptDate = new Date(apt.date);
-        return isWithinInterval(aptDate, { start: startOfWeek, end: endOfWeek });
+        return ['pending', 'accepted'].includes(apt.status)
+          && isWithinInterval(aptDate, { start: startOfWeek, end: endOfWeek });
       });
 
       const historicFiltered = data.appointments.filter(
@@ -175,8 +181,13 @@ export function DoctorDashboard() {
 
   const updateAppointmentStatus = async (
     appointmentId: string,
-    status: 'accepted' | 'cancelled'
+    status: 'accepted' | 'cancelled',
+    reason?: string
   ) => {
+    if (status === 'cancelled' && (reason?.trim().length || 0) < 5) {
+      toast.error('Indiquez une raison d’au moins 5 caractères.');
+      return;
+    }
     try {
       const token = localStorage.getItem('token');
       const action = status === 'accepted' ? 'accept' : 'cancel';
@@ -188,6 +199,7 @@ export function DoctorDashboard() {
             'Content-Type': 'application/json',
             Authorization: `Bearer ${token}`,
           },
+          body: status === 'cancelled' ? JSON.stringify({ reason: reason?.trim() }) : undefined,
         }
       );
 
@@ -226,16 +238,18 @@ export function DoctorDashboard() {
         );
         if (cancelledAppointment) {
           setHistoricAppointments((prevHistoricAppointments) => [
-            ...prevHistoricAppointments,
-            { ...cancelledAppointment, status },
+            ...prevHistoricAppointments.filter((item) => item._id !== appointmentId),
+            updatedAppointment,
           ]);
           setAppointments((prevAppointments) =>
             prevAppointments.filter((apt) => apt._id !== appointmentId)
           );
         }
+        setAppointmentToRefuse(null);
+        setRefusalReason('');
       }
 
-      toast.success(t(status === 'accepted' ? 'appointmentAccepted' : 'appointmentCancelled'));
+      toast.success(t(status === 'accepted' ? 'appointmentAccepted' : appointmentToRefuse ? 'appointmentRefused' : 'appointmentCancelled'));
     } catch (error) {
       console.error('Error:', error);
       toast.error(t('errorTryAgain'));
@@ -398,6 +412,10 @@ export function DoctorDashboard() {
     return appointment.status === "accepted";
   };
 
+  const displayedAppointments = appointments.filter((appointment) =>
+    appointmentFilter === 'pending' ? appointment.status === 'pending' : true
+  );
+
   useEffect(() => {
     fetchAppointments();
     fetchAvailability();
@@ -482,16 +500,36 @@ export function DoctorDashboard() {
 
         <div className="grid lg:grid-cols-2 gap-8">
           <div>
-            <h2 className="text-xl font-semibold mb-4">{t('upcomingAppointments')}</h2>
+            <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+              <h2 className="text-xl font-semibold">{t('upcomingAppointments')}</h2>
+              <div className="flex gap-2" role="group" aria-label={t('filterAppointments')}>
+                <button
+                  type="button"
+                  onClick={() => setAppointmentFilter('all')}
+                  aria-pressed={appointmentFilter === 'all'}
+                  className={clsx('rounded-full px-3 py-1.5 text-sm font-medium', appointmentFilter === 'all' ? 'bg-indigo-600 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200')}
+                >
+                  {t('all')} ({appointments.length})
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setAppointmentFilter('pending')}
+                  aria-pressed={appointmentFilter === 'pending'}
+                  className={clsx('rounded-full px-3 py-1.5 text-sm font-medium', appointmentFilter === 'pending' ? 'bg-amber-500 text-white' : 'bg-gray-100 text-gray-700 dark:bg-gray-700 dark:text-gray-200')}
+                >
+                  {t('pending')} ({appointments.filter((appointment) => appointment.status === 'pending').length})
+                </button>
+              </div>
+            </div>
             <div className="space-y-4">
-              {appointments.length === 0 ? (
+              {displayedAppointments.length === 0 ? (
                 <p className="text-gray-600">{t('noAppointmentsThisWeek')}</p>
               ) : (
-                appointments
+                [...displayedAppointments]
                   .sort((a, b) => {
-                    const dateA = new Date(`${a.date}T${a.time}`);
-                    const dateB = new Date(`${b.date}T${b.time}`);
-                    return dateA.getTime() - dateB.getTime();
+                    const dateA = new Date(`${format(new Date(a.date), 'yyyy-MM-dd')}T${a.time}`);
+                    const dateB = new Date(`${format(new Date(b.date), 'yyyy-MM-dd')}T${b.time}`);
+                    return dateB.getTime() - dateA.getTime();
                   })
                   .map((appointment) => (
                     <div
@@ -524,6 +562,15 @@ export function DoctorDashboard() {
                           >
                             {t('status')}: {t(appointment.status)}
                           </p>
+                          {appointment.status === 'pending' && appointment.createdAt && (
+                            <p className="mt-1 text-sm font-medium text-amber-700 dark:text-amber-300">
+                              {t('pendingSince', {
+                                time: formatDistanceToNow(new Date(appointment.createdAt), {
+                                  locale: i18n.language === 'fr' ? fr : i18n.language === 'ar' ? ar : undefined,
+                                }),
+                              })}
+                            </p>
+                          )}
                           {appointment.isTeleconsultation && appointment.status === "accepted" && (
                             <p className="text-sm text-indigo-600 dark:text-indigo-400 mt-1">
                               {timers[appointment._id] || t('consultationEnded')}
@@ -552,9 +599,10 @@ export function DoctorDashboard() {
                           )}
                           {appointment.status === 'pending' && (
                             <button
-                              onClick={() => updateAppointmentStatus(appointment._id, 'cancelled')}
+                              onClick={() => setAppointmentToRefuse(appointment)}
                               className="p-2 text-red-600 hover:bg-red-50 rounded-full"
-                              title={t('cancel')}
+                              title={t('refuseAppointment')}
+                              aria-label={t('refuseAppointment')}
                             >
                               <XCircle className="w-5 h-5" />
                             </button>
@@ -616,6 +664,48 @@ export function DoctorDashboard() {
         onClose={closeHistoricModal}
         appointments={historicAppointments}
       />
+      {appointmentToRefuse && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4" role="presentation">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="refuse-appointment-title">
+            <h2 id="refuse-appointment-title" className="text-xl font-semibold text-gray-900 dark:text-white">
+              Refuser cette demande ?
+            </h2>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              Le patient recevra votre décision et la raison indiquée.
+            </p>
+            <label htmlFor="doctor-refusal-reason" className="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-200">
+              Raison du refus (obligatoire)
+            </label>
+            <textarea
+              id="doctor-refusal-reason"
+              value={refusalReason}
+              onChange={(event) => setRefusalReason(event.target.value)}
+              maxLength={500}
+              rows={3}
+              required
+              placeholder="Expliquez brièvement au patient (5 caractères minimum)."
+              className="mt-1 w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+            />
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={() => { setAppointmentToRefuse(null); setRefusalReason(''); }}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                Garder la demande
+              </button>
+              <button
+                type="button"
+                disabled={refusalReason.trim().length < 5}
+                onClick={() => updateAppointmentStatus(appointmentToRefuse._id, 'cancelled', refusalReason)}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                Confirmer le refus
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       {selectedAppointment && (
         <TeleconsultationModal
           isOpen={isTeleconsultationModalOpen}

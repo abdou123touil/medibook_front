@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/auth";
 import { Calendar, DollarSign, CheckCircle, Clock, Video } from "lucide-react";
@@ -45,7 +46,9 @@ interface Appointment {
   status: string;
   isTeleconsultation: boolean;
   teleconsultation?: { jitsiUrl: string; status: string };
-  doctorId: { firstName: string; lastName: string; speciality: string };
+  doctorId: { _id?: string; firstName: string; lastName: string; speciality: string };
+  cancellationReason?: string | null;
+  cancelledBy?: 'client' | 'doctor' | 'system' | null;
 }
 
 interface PatientClinicalRecord {
@@ -74,6 +77,7 @@ const STATUS_COLORS: { [key: string]: string } = {
 
 const PatientDashboard = () => {
   const { t, i18n } = useTranslation();
+  const navigate = useNavigate();
   const { user } = useAuthStore();
   const [stats, setStats] = useState<Stat[]>([]);
   const [totalAppointments, setTotalAppointments] = useState(0);
@@ -100,6 +104,7 @@ const PatientDashboard = () => {
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
   const [isCancellingAppointment, setIsCancellingAppointment] = useState(false);
+  const [cancellationReason, setCancellationReason] = useState('');
   const users = localStorage.getItem("user");
   const parsedUser = users ? JSON.parse(users) : null;
   const userId = parsedUser?.data?.id || null;
@@ -109,16 +114,24 @@ const PatientDashboard = () => {
 
   const cancelAppointment = async () => {
     if (!appointmentToCancel || isCancellingAppointment) return;
+    if (cancellationReason.trim().length < 5) {
+      toast.error('Indiquez une raison d’au moins 5 caractères.');
+      return;
+    }
     setIsCancellingAppointment(true);
     try {
       const response = await fetch(`http://localhost:3000/api/appointments/${appointmentToCancel._id}/cancel`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        body: JSON.stringify({ reason: cancellationReason.trim() }),
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Impossible d’annuler le rendez-vous.');
-      setAppointments((items) => items.map((item) => item._id === appointmentToCancel._id ? { ...item, status: 'cancelled' } : item));
+      setAppointments((items) => items.map((item) => item._id === appointmentToCancel._id
+        ? { ...item, status: 'cancelled', cancellationReason: cancellationReason.trim(), cancelledBy: 'client' }
+        : item));
       setAppointmentToCancel(null);
+      setCancellationReason('');
       toast.success('Rendez-vous annulé. Le créneau peut être proposé à un patient en liste d’attente.');
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Impossible d’annuler le rendez-vous.');
@@ -591,6 +604,9 @@ const PatientDashboard = () => {
                         <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
                           Dr. {appointment.doctorId.lastName} · {format(new Date(appointment.date), 'dd/MM/yyyy')} à {appointment.time}
                         </p>
+                        {appointment.cancellationReason && (
+                          <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">Raison : {appointment.cancellationReason}</p>
+                        )}
                       </div>
                       <span
                         className="rounded-full px-3 py-1 text-sm font-medium"
@@ -601,6 +617,15 @@ const PatientDashboard = () => {
                       >
                         {t(appointment.status)}
                       </span>
+                      {appointment.status === 'cancelled' && appointment.doctorId._id && (
+                        <button
+                          type="button"
+                          onClick={() => navigate('/client', { state: { rebookDoctorId: appointment.doctorId._id } })}
+                          className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                        >
+                          Reprogrammer
+                        </button>
+                      )}
                     </div>
                   ))}
               </div>
@@ -677,7 +702,10 @@ const PatientDashboard = () => {
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onMouseDown={(event) => {
-            if (event.target === event.currentTarget && !isCancellingAppointment) setAppointmentToCancel(null);
+            if (event.target === event.currentTarget && !isCancellingAppointment) {
+              setAppointmentToCancel(null);
+              setCancellationReason('');
+            }
           }}
           role="presentation"
         >
@@ -699,20 +727,33 @@ const PatientDashboard = () => {
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
               Cette action est définitive. Le créneau pourra être proposé à un autre patient.
             </p>
+            <label htmlFor="patient-cancellation-reason" className="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-200">
+              Pourquoi annulez-vous ? (obligatoire)
+            </label>
+            <textarea
+              id="patient-cancellation-reason"
+              value={cancellationReason}
+              onChange={(event) => setCancellationReason(event.target.value)}
+              maxLength={500}
+              rows={3}
+              placeholder="Indiquez brièvement la raison (5 caractères minimum)."
+              className="mt-1 w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              required
+            />
             <div className="mt-6 flex justify-end gap-3">
               <button
                 type="button"
                 disabled={isCancellingAppointment}
-                onClick={() => setAppointmentToCancel(null)}
+                onClick={() => { setAppointmentToCancel(null); setCancellationReason(''); }}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
               >
                 Garder le rendez-vous
               </button>
               <button
                 type="button"
-                disabled={isCancellingAppointment}
+                disabled={isCancellingAppointment || cancellationReason.trim().length < 5}
                 onClick={cancelAppointment}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCancellingAppointment ? 'Annulation…' : 'Confirmer l’annulation'}
               </button>

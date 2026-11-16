@@ -10,15 +10,18 @@ interface Notification {
   read: boolean;
   action?: string | null;
   waitlistEntryId?: string | null;
+  doctorId?: string | null;
 }
 
 interface NotificationsProps {
   notifications: Notification[];
   onMarkAsRead: (id: string) => void;
   onConfirmWaitlist?: (notification: Notification) => void;
+  onRescheduleAppointment?: (notification: Notification) => void;
+  onKeepCancellation?: (notification: Notification) => void;
 }
 
-export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist }: NotificationsProps) {
+export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, onRescheduleAppointment, onKeepCancellation }: NotificationsProps) {
   return (
     <div className="relative ">
       <div className="absolute right-0 w-96 mt-2 bg-white rounded-xl shadow-lg z-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
@@ -72,6 +75,30 @@ export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist }
                     >
                       Confirmer ce créneau
                     </button>
+                  )}
+                  {notification.action === 'reschedule_appointment' && notification.doctorId && (
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onRescheduleAppointment?.(notification);
+                        }}
+                        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+                      >
+                        Choisir un autre créneau
+                      </button>
+                      <button
+                        type="button"
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          onKeepCancellation?.(notification);
+                        }}
+                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-600"
+                      >
+                        Garder l’annulation
+                      </button>
+                    </div>
                   )}
                 </div>
               </div>

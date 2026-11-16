@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { useLocation, useNavigate } from "react-router-dom";
 import { Search, Calendar, Clock } from "lucide-react";
 import { BookingModal } from "../components/BookingModal";
 import { ReviewModal } from "../components/ReviewModal";
@@ -18,6 +19,7 @@ const specialties = [
 
 interface Doctor {
   id: string;
+  _id?: string;
   email: string;
   role: string;
   firstName: string;
@@ -28,6 +30,8 @@ interface Doctor {
 }
 
 export function ClientDashboard() {
+  const location = useLocation();
+  const navigate = useNavigate();
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("");
   const [selectedDoctor, setSelectedDoctor] = useState<Doctor | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -60,6 +64,23 @@ export function ClientDashboard() {
 
     fetchDoctors();
   }, []);
+
+  useEffect(() => {
+    if (loading) return;
+    const rebookDoctorId = (location.state as { rebookDoctorId?: string } | null)?.rebookDoctorId;
+    if (!rebookDoctorId) return;
+
+    const doctorToRebook = doctors.find((doctor: Doctor & { _id?: string }) =>
+      doctor._id === rebookDoctorId || doctor.id === rebookDoctorId
+    );
+    if (doctorToRebook) {
+      setSelectedDoctor(doctorToRebook);
+      setIsBookingModalOpen(true);
+    } else {
+      setError('Le médecin de ce rendez-vous est introuvable. Vous pouvez le rechercher dans la liste.');
+    }
+    navigate(location.pathname, { replace: true, state: null });
+  }, [doctors, loading, location.pathname, location.state, navigate]);
 
   const handleBookAppointment = (appointment: {
     date: Date;

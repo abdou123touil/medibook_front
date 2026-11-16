@@ -20,6 +20,7 @@ interface NotificationItem {
   read: boolean;
   action?: string | null;
   waitlistEntryId?: string | null;
+  doctorId?: string | null;
 }
 
 export function Navigation() {
@@ -65,6 +66,7 @@ export function Navigation() {
           read: Boolean(item.readAt),
           action: item.action || null,
           waitlistEntryId: item.waitlistEntryId || null,
+          doctorId: item.doctorId?._id || item.doctorId || null,
         })));
       } catch (error) {
         console.error('Impossible de charger les notifications:', error);
@@ -109,6 +111,32 @@ export function Navigation() {
     } catch (error) {
       toast.error(error instanceof Error ? error.message : 'Impossible de confirmer ce créneau.');
     }
+  };
+
+  const completeAbsenceNotification = async (notification: NotificationItem) => {
+    setNotifications((items) => items.map((item) => item.id === notification.id
+      ? { ...item, read: true, action: null }
+      : item));
+    try {
+      const response = await fetch(`http://localhost:3000/api/notifications/${notification.id}/action-complete`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (!response.ok) throw new Error('Impossible de clôturer cette notification.');
+    } catch (error) {
+      console.error('Impossible de clôturer cette notification:', error);
+    }
+  };
+
+  const rescheduleAfterAbsence = (notification: NotificationItem) => {
+    if (!notification.doctorId) return;
+    void completeAbsenceNotification(notification);
+    navigate('/client', { state: { rebookDoctorId: notification.doctorId } });
+  };
+
+  const keepAbsenceCancellation = (notification: NotificationItem) => {
+    void completeAbsenceNotification(notification);
+    toast.success('Annulation conservée.');
   };
 
   const handleLogout = () => {
@@ -252,6 +280,8 @@ export function Navigation() {
                         notifications={notifications}
                         onMarkAsRead={markNotificationAsRead}
                         onConfirmWaitlist={confirmWaitlistOffer}
+                        onRescheduleAppointment={rescheduleAfterAbsence}
+                        onKeepCancellation={keepAbsenceCancellation}
                       />
                     )}
                   </div>

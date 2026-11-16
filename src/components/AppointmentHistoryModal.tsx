@@ -12,6 +12,7 @@ interface Appointment {
   time: string;
   symptoms: string;
   status: 'pending' | 'accepted' | 'completed' | 'cancelled';
+  cancellationReason?: string | null;
 }
 
 interface AppointmentDetails {
@@ -254,6 +255,11 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                               : 'En attente'}
                           </span>
                         </p>
+                        {appointment.status === 'cancelled' && appointment.cancellationReason && (
+                          <p className="mt-2 rounded-md bg-red-100 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
+                            Motif : {appointment.cancellationReason}
+                          </p>
+                        )}
                       </div>
                     </div>
 
