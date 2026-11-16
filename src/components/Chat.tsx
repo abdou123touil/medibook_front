@@ -502,11 +502,11 @@ export function Chat({ onClose }: ChatProps) {
   return (
     <div
       ref={chatRef}
-      className="flex flex-col h-[600px] bg-white dark:bg-gray-800 rounded-xl shadow-lg"
+      className="flex flex-col h-[600px] bg-white dark:bg-slate-900 rounded-xl shadow-lg"
     >
       <div className="flex flex-1 overflow-hidden">
         {/* Liste des conversations */}
-        <div className="w-1/3 border-r dark:border-gray-700 overflow-y-auto">
+        <div className="w-1/3 border-r dark:border-slate-800 overflow-y-auto">
           {conversations.map((conversation) => {
             const otherUser = getOtherUserFromConversation(conversation);
             const lastMessageDate =
@@ -518,10 +518,10 @@ export function Chat({ onClose }: ChatProps) {
                 key={conversation.conversationId}
                 onClick={() => setSelectedConversation(conversation)}
                 className={clsx(
-                  "w-full p-4 text-left hover:bg-gray-100 dark:hover:bg-gray-700",
+                  "w-full p-4 text-left hover:bg-slate-100 dark:hover:bg-slate-800",
                   selectedConversation?.conversationId ===
                     conversation.conversationId &&
-                    "border-r dark:border-gray-700 bg-gray-100 dark:bg-gray-700",
+                    "border-r dark:border-slate-800 bg-slate-100 dark:bg-slate-800",
                   conversation.isBot && "bg-indigo-50 dark:bg-indigo-900"
                 )}
               >
@@ -535,14 +535,14 @@ export function Chat({ onClose }: ChatProps) {
                     <p className="font-medium truncate">
                       {otherUser?.firstName} {otherUser?.lastName}
                     </p>
-                    <p className="text-sm text-gray-500 truncate">
+                    <p className="text-sm text-slate-500 truncate">
                       {conversation.lastMessage?.content ||
                         (conversation.isBot
                           ? t('medicalAiAssistant')
                           : t('newAppointment'))}
                     </p>
                     <div className="flex justify-between items-center mt-1">
-                      <p className="text-xs text-gray-400">
+                      <p className="text-xs text-slate-400">
                         {lastMessageDate
                           ? format(
                               new Date(lastMessageDate),
@@ -569,7 +569,7 @@ export function Chat({ onClose }: ChatProps) {
         <div className="flex-1 flex flex-col">
           <button
             onClick={onClose}
-            className="text-gray-500 hover:text-gray-700 dark:hover:text-gray-300"
+            className="text-slate-500 hover:text-slate-700 dark:hover:text-gray-300"
           >
             <X className="w-6 h-6" />
           </button>
@@ -586,10 +586,10 @@ export function Chat({ onClose }: ChatProps) {
                       <div
                         key={message._id}
                         className={clsx(
-                          "max-w-[80%] rounded-lg p-3",
+                          "max-w-[80%] rounded-xl p-3",
                           message.senderId._id === user?.data?.id
                             ? "ml-auto bg-indigo-600 text-white"
-                            : "bg-gray-100 dark:bg-gray-700",
+                            : "bg-slate-100 dark:bg-slate-800",
                           message.senderId._id === user?.data?.id &&
                             message.readAt &&
                             "opacity-80"
@@ -602,7 +602,7 @@ export function Chat({ onClose }: ChatProps) {
                               "text-xs",
                               message.senderId._id === user?.data?.id
                                 ? "text-indigo-200"
-                                : "text-gray-500 dark:text-gray-400"
+                                : "text-slate-500 dark:text-slate-400"
                             )}
                           >
                             {format(new Date(message.createdAt), "HH:mm", {
@@ -624,8 +624,8 @@ export function Chat({ onClose }: ChatProps) {
                       </div>
                     ))}
                     {isBotTyping && selectedConversation.isBot && (
-                      <div className="max-w-[80%] rounded-lg p-3 bg-gray-100 dark:bg-gray-700">
-                        <p className="text-gray-500 animate-pulse">
+                      <div className="max-w-[80%] rounded-xl p-3 bg-slate-100 dark:bg-slate-800">
+                        <p className="text-slate-500 animate-pulse">
                           {t('botTyping')}
                         </p>
                       </div>
@@ -637,7 +637,7 @@ export function Chat({ onClose }: ChatProps) {
 
               <form
                 onSubmit={sendMessage}
-                className="p-4 border-t dark:border-gray-700"
+                className="p-4 border-t dark:border-slate-800"
               >
                 <div className="flex gap-2">
                   <input
@@ -649,12 +649,12 @@ export function Chat({ onClose }: ChatProps) {
                         ? t('askMedicalQuestion')
                         : t('writeMessage')
                     }
-                    className="flex-1 px-4 py-2 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700"
+                    className="flex-1 px-4 py-2 border dark:border-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-slate-800"
                   />
                   <button
                     type="submit"
                     disabled={!newMessage.trim() || isBotTyping}
-                    className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                    className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     <Send className="w-5 h-5" />
                   </button>
@@ -662,7 +662,7 @@ export function Chat({ onClose }: ChatProps) {
               </form>
             </>
           ) : (
-            <div className="flex-1 flex items-center justify-center text-gray-500">
+            <div className="flex-1 flex items-center justify-center text-slate-500">
               {t('selectConversation')}
             </div>
           )}

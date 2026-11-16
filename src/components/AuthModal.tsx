@@ -77,18 +77,18 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   return (
     <AnimatePresence>
       <motion.div
-        className="fixed inset-0 dark:bg-gray-900 bg-black bg-opacity-50 flex justify-center items-center"
+        className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 px-4 backdrop-blur-sm"
         initial="hidden"
         animate="visible"
         exit="exit"
       >
         <motion.div
-          className="bg-white dark:bg-gray-700 p-6 rounded-lg shadow-lg w-96"
+          className="relative w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 text-slate-900 shadow-2xl dark:border-slate-800 dark:bg-slate-900 dark:text-white sm:p-8"
           variants={modalVariants}
         >
           <button
             onClick={onClose}
-            className="absolute right-4 top-4 dark:text-gray-200 text-gray-400 hover:text-gray-600"
+            className="absolute right-4 top-4 rounded-xl p-2 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
           >
             <X className="w-6 h-6" />
           </button>
@@ -98,30 +98,30 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           {mode === 'login' ? (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">{t('email')}</label>
+                <label className="block text-sm font-medium dark:text-white text-slate-700 mb-1">{t('email')}</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:text-black rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">{t('password')}</label>
+                <label className="block text-sm font-medium dark:text-white text-slate-700 mb-1">{t('password')}</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:text-black rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   required
                 />
               </div>
 
               <button
                 type="submit"
-                className="w-full bg-indigo-600 dark:text-white text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                className="w-full bg-indigo-600 dark:text-white text-white py-2 rounded-xl hover:bg-indigo-700 transition-colors"
               >
                 {t('login')}
               </button>
@@ -129,35 +129,35 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
           ) : (
             <form onSubmit={handleRegisterSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">{t('email')}</label>
+                <label className="block text-sm font-medium dark:text-white text-slate-700 mb-1">{t('email')}</label>
                 <input
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full px-3 py-2 border border-gray-300 dark:text-black rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">{t('password')}</label>
+                <label className="block text-sm font-medium dark:text-white text-slate-700 mb-1">{t('password')}</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   minLength={8}
                   autoComplete="new-password"
-                  className="w-full px-3 py-2 border dark:text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">{t('accountType')}</label>
+                <label className="block text-sm font-medium dark:text-white text-slate-700 mb-1">{t('accountType')}</label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value as 'client' | 'doctor')}
-                  className="w-full px-3 py-2 border dark:text-black border-gray-300 rounded-lg"
+                  className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                 >
                   <option value="client">{t('client')}</option>
                   <option value="doctor">{t('doctor')}</option>
@@ -166,7 +166,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
               <button
                 type="submit"
-                className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
+                className="w-full bg-indigo-600 text-white py-2 rounded-xl hover:bg-indigo-700 transition-colors"
               >
                 {t('register')}
               </button>

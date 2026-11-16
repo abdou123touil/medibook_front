@@ -67,21 +67,21 @@ export function PatientSearchModal({ isOpen, onClose, appointments, onSelectPati
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={t('searchPatientRecord')}>
-      <div className="bg-white dark:bg-gray-800 w-full max-w-xl max-h-[85vh] overflow-hidden rounded-xl shadow-xl">
-        <div className="flex items-center justify-between p-5 border-b dark:border-gray-700">
-          <h2 className="text-xl font-semibold">{t('patientRecords')}</h2>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" aria-label={t('close')}><X /></button>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label={t('searchPatientRecord')}>
+      <div className="max-h-[85vh] w-full max-w-xl overflow-hidden rounded-3xl border border-slate-200 bg-white text-slate-900 shadow-2xl dark:border-slate-800 dark:bg-slate-900 dark:text-white">
+        <div className="flex items-center justify-between border-b border-slate-100 p-5 dark:border-slate-800">
+          <h2 className="text-xl font-bold tracking-tight">{t('patientRecords')}</h2>
+          <button onClick={onClose} className="rounded-xl p-2 transition hover:bg-slate-100 dark:hover:bg-slate-800" aria-label={t('close')}><X /></button>
         </div>
         <div className="p-5">
           <label className="relative block">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-slate-400" />
             <input
               autoFocus
               value={search}
               onChange={(event) => setSearch(event.target.value)}
               placeholder={t('searchPatient')}
-              className="w-full rounded-lg border py-3 pl-10 pr-3 dark:bg-gray-900 dark:border-gray-600"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             />
           </label>
           <div className="mt-4 max-h-[55vh] overflow-y-auto space-y-2">
@@ -89,19 +89,19 @@ export function PatientSearchModal({ isOpen, onClose, appointments, onSelectPati
               <button
                 key={patient.id}
                 onClick={() => onSelectPatient(patient)}
-                className="w-full flex items-center justify-between gap-4 p-4 rounded-lg border text-left hover:bg-indigo-50 dark:hover:bg-gray-700"
+                className="flex w-full items-center justify-between gap-4 rounded-xl border border-slate-200 bg-white p-4 text-left transition hover:border-indigo-200 hover:bg-indigo-50/60 dark:border-slate-800 dark:bg-slate-900 dark:hover:border-indigo-900 dark:hover:bg-slate-800"
               >
                 <span className="flex items-center gap-3 min-w-0">
                   <UserRound className="w-5 h-5 shrink-0 text-indigo-600" />
                   <span className="truncate font-medium">{patient.firstName} {patient.lastName}</span>
                 </span>
-                <span className="text-xs text-gray-500 shrink-0">
+                <span className="text-xs text-slate-500 shrink-0">
                   {t('consultationCount', { count: patient.consultationCount })} · {t('lastAppointmentDate', { date: format(new Date(patient.appointment.date), 'dd/MM/yyyy', { locale: fr }) })}
                 </span>
               </button>
             ))}
             {filteredPatients.length === 0 && (
-              <p className="py-8 text-center text-sm text-gray-500">
+              <p className="py-8 text-center text-sm text-slate-500">
                 {patients.length === 0 ? t('noConsultedPatients') : t('noPatientMatches')}
               </p>
             )}

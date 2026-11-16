@@ -93,17 +93,17 @@ export function TeleconsultationModal({ isOpen, onClose, jitsiUrl, appointment }
   // Check if appointment is accepted
   if (appointment.status !== 'accepted') {
     return (
-      <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-        <div className="bg-white dark:bg-gray-800 rounded-lg p-6 max-w-md w-full">
+      <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-4 backdrop-blur-sm">
+        <div className="w-full max-w-md rounded-3xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-800 dark:bg-slate-900">
           <div className="flex justify-between items-center mb-4">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
               {t('teleconsultation')}
             </h2>
-            <button onClick={handleClose} className="text-gray-600 hover:text-gray-900">
+            <button onClick={handleClose} className="text-slate-600 hover:text-slate-900">
               <X className="w-6 h-6" />
             </button>
           </div>
-          <p className="text-gray-600 dark:text-gray-300">
+          <p className="text-slate-600 dark:text-slate-300">
             {t('appointmentNotAccepted')}
           </p>
         </div>
@@ -112,18 +112,18 @@ export function TeleconsultationModal({ isOpen, onClose, jitsiUrl, appointment }
   }
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-      <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-4xl h-[80vh] flex flex-col">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-950/60 p-3 backdrop-blur-sm sm:p-5">
+      <div className="flex h-[min(88vh,56rem)] w-full max-w-6xl flex-col rounded-3xl border border-slate-200 bg-white p-4 shadow-2xl dark:border-slate-800 dark:bg-slate-900 sm:p-6">
         <div className="flex justify-between items-center mb-4">
-          <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">
             {t('teleconsultation')}
           </h2>
-          <button onClick={handleClose} className="text-gray-600 hover:text-gray-900 dark:hover:text-white">
+          <button onClick={handleClose} className="text-slate-600 hover:text-slate-900 dark:hover:text-white">
             <X className="w-6 h-6" />
           </button>
         </div>
 
-        <div className="flex-1 bg-gray-100 dark:bg-gray-900 rounded-lg overflow-hidden">
+        <div className="flex-1 bg-slate-100 dark:bg-slate-950 rounded-xl overflow-hidden">
           {isIframeLoaded ? (
             <iframe
               src={jitsiUrl}
@@ -132,7 +132,7 @@ export function TeleconsultationModal({ isOpen, onClose, jitsiUrl, appointment }
               title={t('jitsiTeleconsultation')}
             />
           ) : (
-            <div className="h-full flex items-center justify-center text-gray-600 dark:text-gray-300">
+            <div className="h-full flex items-center justify-center text-slate-600 dark:text-slate-300">
               {t('clickJoinToStart')}
             </div>
           )}
@@ -141,7 +141,7 @@ export function TeleconsultationModal({ isOpen, onClose, jitsiUrl, appointment }
         <div className="mt-4 space-y-4">
           <div className="text-center">
             {timeRemaining ? (
-              <p className="text-lg font-medium text-gray-900 dark:text-white">
+              <p className="text-lg font-medium text-slate-900 dark:text-white">
                 {timeRemaining === t('consultationInProgress')
                   ? t('consultationInProgress')
                   : `${t('startsIn')} ${timeRemaining}`}
@@ -153,12 +153,12 @@ export function TeleconsultationModal({ isOpen, onClose, jitsiUrl, appointment }
             )}
           </div>
 
-          <div className="flex justify-center gap-4">
+          <div className="flex flex-wrap justify-center gap-3">
             <button
               onClick={handleJoin}
               disabled={!isJoinButtonEnabled}
               className={`
-                flex items-center gap-2 px-4 py-2 rounded-full text-white
+                inline-flex min-h-11 items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white transition
                 ${isJoinButtonEnabled ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-gray-400 cursor-not-allowed'}
               `}
             >
@@ -167,14 +167,14 @@ export function TeleconsultationModal({ isOpen, onClose, jitsiUrl, appointment }
             </button>
             <button
               onClick={handleJoinInBrowser}
-              className="flex items-center gap-2 px-4 py-2 bg-gray-200 text-gray-800 rounded-full hover:bg-gray-300 dark:bg-gray-700 dark:text-white dark:hover:bg-gray-600"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-slate-100 px-4 py-2 text-sm font-semibold text-slate-800 transition hover:bg-slate-200 dark:bg-slate-800 dark:text-white dark:hover:bg-slate-700"
             >
               <ExternalLink className="w-5 h-5" />
               {t('joinInBrowser')}
             </button>
           </div>
 
-          <p className="text-sm text-gray-600 dark:text-gray-300 text-center">
+          <p className="text-sm text-slate-600 dark:text-slate-300 text-center">
             {t('ensureCameraMic')}
           </p>
         </div>

@@ -17,12 +17,18 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const [availableSlots, setAvailableSlots] = useState<{ [key: string]: string[] }>({});
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
   const { user, isAuthenticated } = useAuthStore();
 
   const startDate = startOfWeek(new Date(), { locale: dateLocale });
   const weekDays = [...Array(14)].map((_, i) => addDays(startDate, i));
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(new Date()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   // Fetch available slots on mount
   useEffect(() => {
@@ -65,6 +71,7 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
   // Book an appointment
   const bookAppointment = async (time: string) => {
     try {
+      if (isSlotInPast(time)) return;
       const patientId = user?.data?.id;
       if (!patientId || !isAuthenticated) {
         toast.error(t('errorPleaseLogin'));
@@ -105,9 +112,13 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
 
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
   const selectedDateSlots = availableSlots[selectedDateKey] || [];
+  const isSlotInPast = (time: string) => {
+    const todayKey = format(currentTime, 'yyyy-MM-dd');
+    return selectedDateKey < todayKey || (selectedDateKey === todayKey && time <= format(currentTime, 'HH:mm'));
+  };
 
   return (
-    <div className="bg-white dark:bg-gray-900 border rounded-xl shadow-lg p-6">
+    <div className="bg-white dark:bg-slate-950 border rounded-xl shadow-lg p-6">
       <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
         <CalendarIcon className="w-6 h-6 text-indigo-600" />
         {t('bookWithDoctor', { doctor: doctorName })}
@@ -118,11 +129,13 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
           <button
             key={date.toISOString()}
             onClick={() => setSelectedDate(date)}
+            disabled={format(date, 'yyyy-MM-dd') < format(currentTime, 'yyyy-MM-dd')}
             className={clsx(
-              "p-2 rounded-lg text-sm font-medium transition-colors",
+              "p-2 rounded-xl text-sm font-medium transition-colors",
               format(date, 'yyyy-MM-dd') === selectedDateKey
                 ? "bg-indigo-600 text-white"
-                : "hover:bg-indigo-50"
+                : "hover:bg-indigo-50",
+              format(date, 'yyyy-MM-dd') < format(currentTime, 'yyyy-MM-dd') && "cursor-not-allowed opacity-40"
             )}
           >
             <div className="text-xs mb-1">{format(date, 'EEE', { locale: dateLocale })}</div>
@@ -141,9 +154,12 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
               <button
                 key={time}
                 onClick={() => bookAppointment(time)}
+                disabled={isSlotInPast(time)}
                 className={clsx(
-                  "p-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2",
-                  "border border-gray-200 hover:bg-indigo-50"
+                  "p-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2",
+                  isSlotInPast(time)
+                    ? "cursor-not-allowed border border-slate-200 bg-slate-100 text-slate-400 opacity-70 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-500"
+                    : "border border-slate-200 hover:bg-indigo-50"
                 )}
               >
                 {time}
@@ -152,11 +168,11 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
             ))}
           </div>
         ) : (
-          <p className="text-gray-500">{t('noSlotsForDay')}</p>
+          <p className="text-slate-500">{t('noSlotsForDay')}</p>
         )}
       </div>
       {requiresConfirmation && (
-        <p className="mt-4 text-sm text-gray-600">{t('manualConfirmationRequired')}</p>
+        <p className="mt-4 text-sm text-slate-600">{t('manualConfirmationRequired')}</p>
       )}
     </div>
   );

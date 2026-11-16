@@ -23,6 +23,7 @@ interface DoctorAbsence {
 
 export function AvailabilityManager({ onUpdateAvailability, appointments }: AvailabilityManagerProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
+  const [currentTime, setCurrentTime] = useState(() => new Date());
   const [availability, setAvailability] = useState<{ [key: string]: string[] }>({});
   const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
   const [absenceStartDate, setAbsenceStartDate] = useState('');
@@ -35,6 +36,11 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
   const { user, isAuthenticated } = useAuthStore();
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
+
+  useEffect(() => {
+    const interval = window.setInterval(() => setCurrentTime(new Date()), 30_000);
+    return () => window.clearInterval(interval);
+  }, []);
 
   const startDate = startOfWeek(new Date(), { locale: dateLocale });
   const weekDays = [...Array(35)].map((_, i) => addDays(startDate, i));
@@ -249,14 +255,10 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
 
   // Determine if a time slot should be disabled (past or booked)
   const isTimeSlotDisabled = (time: string) => {
-    if (isSameDay(selectedDate, new Date())) {
-      const currentTime = format(new Date(), 'HH:mm');
-      if (time <= currentTime) {
-        return true;
-      }
-    }
-
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
+    const todayKey = format(currentTime, 'yyyy-MM-dd');
+    if (dateKey < todayKey || (dateKey === todayKey && time <= format(currentTime, 'HH:mm'))) return true;
+
     return appointments.some(appointment => 
       format(new Date(appointment.date), 'yyyy-MM-dd') === dateKey &&
       appointment.time === time &&
@@ -291,7 +293,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
   );
 
   return (
-    <div className="bg-white dark:bg-gray-900 border rounded-xl shadow-lg p-6">
+    <div className="bg-white dark:bg-slate-950 border rounded-xl shadow-lg p-6">
       <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
         <CalendarIcon className="w-6 h-6 text-indigo-600" />
         {t('manageAvailability')}
@@ -302,13 +304,15 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
           <button
             key={date.toISOString()}
             onClick={() => setSelectedDate(date)}
+            disabled={format(date, 'yyyy-MM-dd') < format(currentTime, 'yyyy-MM-dd')}
             className={clsx(
-              "p-2 rounded-lg text-sm font-medium transition-colors",
+              "p-2 rounded-xl text-sm font-medium transition-colors",
               getAbsenceForDate(format(date, 'yyyy-MM-dd'))
                 ? "bg-red-600 text-white hover:bg-red-700"
                 : format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
                 ? "bg-indigo-600 text-white"
-                : "hover:bg-indigo-50 dark:hover:bg-gray-700",
+                : "hover:bg-indigo-50 dark:hover:bg-slate-800",
+              format(date, 'yyyy-MM-dd') < format(currentTime, 'yyyy-MM-dd') && "cursor-not-allowed opacity-40",
               isSameDay(date, new Date()) && "border border-indigo-600"
             )}
           >
@@ -325,14 +329,14 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
         <div className="flex gap-2">
           <button
             onClick={repeatWeeklySchedule}
-            className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+            className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 text-sm"
           >
             <Repeat className="w-4 h-4" />
             {t('repeat4Weeks')}
           </button>
           <button
             onClick={openAbsenceModal}
-            className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+            className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm"
           >
             <Ban className="w-4 h-4" />
             {t('blockPeriod')}
@@ -356,14 +360,14 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
                 onClick={() => blockedAbsence ? setSelectedAbsence(blockedAbsence) : toggleTimeSlot(time)}
                 disabled={!blockedAbsence && isTimeSlotDisabled(time)}
                 className={clsx(
-                  "p-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 w-full",
+                  "p-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 w-full",
                   blockedAbsence
                     ? "bg-red-600 text-white hover:bg-red-700"
                     : selectedDateSlots.includes(time) && !isBooked
                     ? "bg-indigo-600 text-white"
                     : isBooked
                     ? "bg-yellow-300 text-black"
-                    : "border border-gray-200 hover:bg-indigo-50",
+                    : "border border-slate-200 hover:bg-indigo-50",
                   !blockedAbsence && isTimeSlotDisabled(time) && "opacity-50 cursor-not-allowed"
                 )}
               >
@@ -377,7 +381,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
                 )}
               </button>
               {isBooked && !blockedAbsence && patientName && (
-                <div className="absolute z-10 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
+                <div className="absolute z-10 hidden group-hover:block bg-slate-900 text-white text-xs rounded py-1 px-2 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
                   {t('patient')}: {patientName}
                 </div>
               )}
@@ -387,35 +391,35 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
       </div>
       {isAbsenceModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4" role="presentation">
-          <form onSubmit={saveAbsence} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="doctor-absence-title">
-            <h3 id="doctor-absence-title" className="text-xl font-semibold text-gray-900 dark:text-white">
+          <form onSubmit={saveAbsence} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="doctor-absence-title">
+            <h3 id="doctor-absence-title" className="text-xl font-semibold text-slate-900 dark:text-white">
               {t('scheduleAbsence')}
             </h3>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
               {t('absenceImpact')}
             </p>
-            <p className="mt-2 text-sm font-medium text-gray-800 dark:text-gray-100">
+            <p className="mt-2 text-sm font-medium text-slate-800 dark:text-slate-100">
               {t('affectedAppointmentsCount', { count: affectedAppointmentsCount })}
             </p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
                 {t('from')}
-                <input type="date" required min={format(new Date(), 'yyyy-MM-dd')} value={absenceStartDate} onChange={(event) => setAbsenceStartDate(event.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                <input type="date" required min={format(new Date(), 'yyyy-MM-dd')} value={absenceStartDate} onChange={(event) => setAbsenceStartDate(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 p-2 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
               </label>
-              <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
+              <label className="text-sm font-medium text-slate-700 dark:text-slate-200">
                 {t('to')}
-                <input type="date" required min={absenceStartDate || format(new Date(), 'yyyy-MM-dd')} value={absenceEndDate} onChange={(event) => setAbsenceEndDate(event.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+                <input type="date" required min={absenceStartDate || format(new Date(), 'yyyy-MM-dd')} value={absenceEndDate} onChange={(event) => setAbsenceEndDate(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 p-2 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
               </label>
             </div>
-            <label htmlFor="absence-reason" className="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-200">
+            <label htmlFor="absence-reason" className="mt-4 block text-sm font-medium text-slate-700 dark:text-slate-200">
               {t('optionalReason')}
             </label>
-            <textarea id="absence-reason" value={absenceReason} onChange={(event) => setAbsenceReason(event.target.value)} maxLength={300} rows={3} placeholder={t('absenceReasonPlaceholder')} className="mt-1 w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+            <textarea id="absence-reason" value={absenceReason} onChange={(event) => setAbsenceReason(event.target.value)} maxLength={300} rows={3} placeholder={t('absenceReasonPlaceholder')} className="mt-1 w-full rounded-xl border border-slate-200 p-3 text-sm text-slate-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-slate-700 dark:bg-slate-800 dark:text-white" />
             <div className="mt-6 flex justify-end gap-3">
-              <button type="button" disabled={isSavingAbsence} onClick={() => setIsAbsenceModalOpen(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+              <button type="button" disabled={isSavingAbsence} onClick={() => setIsAbsenceModalOpen(false)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
                 {t('back')}
               </button>
-              <button type="submit" disabled={isSavingAbsence || !absenceStartDate || !absenceEndDate || absenceStartDate > absenceEndDate} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
+              <button type="submit" disabled={isSavingAbsence || !absenceStartDate || !absenceEndDate || absenceStartDate > absenceEndDate} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
                 {isSavingAbsence ? t('saving') : t('confirmAndNotifyPatients')}
               </button>
             </div>
@@ -424,22 +428,22 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
       )}
       {selectedAbsence && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 px-4" role="presentation">
-          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="cancel-block-title">
-            <h3 id="cancel-block-title" className="text-xl font-semibold text-gray-900 dark:text-white">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-slate-900" role="dialog" aria-modal="true" aria-labelledby="cancel-block-title">
+            <h3 id="cancel-block-title" className="text-xl font-semibold text-slate-900 dark:text-white">
               {t('blockedPeriod')}
             </h3>
-            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+            <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">
               {t('dateRange', { start: format(new Date(`${selectedAbsence.startDate}T00:00:00`), 'P', { locale: dateLocale }), end: format(new Date(`${selectedAbsence.endDate}T00:00:00`), 'P', { locale: dateLocale }) })}
             </p>
-            {selectedAbsence.reason && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{t('reason')}: {selectedAbsence.reason}</p>}
-            <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+            {selectedAbsence.reason && <p className="mt-2 text-sm text-slate-600 dark:text-slate-300">{t('reason')}: {selectedAbsence.reason}</p>}
+            <p className="mt-3 text-sm text-slate-600 dark:text-slate-300">
               {t('cancelBlockPrompt')}
             </p>
             <div className="mt-6 flex justify-end gap-3">
-              <button type="button" disabled={isCancellingAbsence} onClick={() => setSelectedAbsence(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+              <button type="button" disabled={isCancellingAbsence} onClick={() => setSelectedAbsence(null)} className="rounded-xl border border-slate-200 px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800">
                 {t('keepBlock')}
               </button>
-              <button type="button" disabled={isCancellingAbsence} onClick={cancelAbsence} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-50">
+              <button type="button" disabled={isCancellingAbsence} onClick={cancelAbsence} className="rounded-xl bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-50">
                 {isCancellingAbsence ? t('cancelling') : t('cancelBlock')}
               </button>
             </div>

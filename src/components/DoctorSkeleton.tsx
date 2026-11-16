@@ -3,7 +3,7 @@ import ContentLoader from "react-content-loader";
 
 const DoctorSkeleton = () => {
   return (
-    <div className="bg-white dark:bg-gray-900 border rounded-lg p-6 shadow-md">
+    <div className="bg-white dark:bg-slate-950 border rounded-xl p-6 shadow-md">
       <ContentLoader
         speed={2}
         width="100%"

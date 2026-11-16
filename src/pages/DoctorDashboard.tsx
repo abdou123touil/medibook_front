@@ -24,6 +24,7 @@ import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
 import clsx from 'clsx';
 import toast from 'react-hot-toast';
+import { motion } from 'framer-motion';
 
 interface ExtendedAppointment extends Appointment {
   teleconsultation?: { jitsiUrl: string; status: string };
@@ -419,62 +420,66 @@ export function DoctorDashboard() {
   }, []);
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="space-y-8">
-        <div className="dark:text-indigo-400 dark:bg-gray-900 border bg-white rounded-xl shadow-lg p-6">
-          <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
-            <h1 className="text-3xl font-bold dark:text-indigo-400 text-gray-900">
-              {t('doctorDashboard')}
-            </h1>
+    <div className={`min-h-screen bg-slate-50 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-6 lg:px-8 ${i18n.language === 'ar' ? 'text-right' : 'text-left'}`} dir={i18n.language === 'ar' ? 'rtl' : 'ltr'}>
+      <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8">
+        <motion.header initial={{ opacity: 0, y: -12 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.35 }} className="flex flex-col gap-6 overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 via-indigo-700 to-violet-600 p-6 text-white shadow-xl shadow-indigo-900/10 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="hidden rounded-2xl bg-white/15 p-3 ring-1 ring-white/20 sm:block"><Calendar className="h-7 w-7" /></div>
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-indigo-100">{t('upcomingAppointments')}</p>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('doctorDashboard')}</h1>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
             <button
               onClick={() => setIsPatientSearchOpen(true)}
-              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+              className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-indigo-800 shadow-sm transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-white/70"
             >
               <Search className="w-4 h-4" />
               Rechercher une fiche patient
             </button>
           </div>
+        </motion.header>
 
-          <div className="grid lg:grid-cols-3 gap-6">
-            <div className="bg-indigo-50 dark:bg-gray-900 border rounded-lg p-6">
-              <h2 className="text-xl dark:text-indigo-400 font-semibold mb-4 flex items-center gap-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
                 <CalendarIcon className="w-5 h-5" />
                 {t('weeklyAppointments')}
               </h2>
-              <div className="text-2xl font-bold text-indigo-600">{appointments.length}</div>
-              <p className="text-gray-600">{t('scheduledAppointments')}</p>
+              <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{appointments.length}</div>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('scheduledAppointments')}</p>
             </div>
 
-            <div className="bg-green-50 dark:bg-gray-700 border rounded-lg p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
                 <CheckCircle className="w-5 h-5 dark:text-indigo-400 text-green-600" />
                 {t('completedConsultations')}
               </h2>
-              <div className="text-2xl font-bold text-green-600">
+              <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                 {historicAppointments.filter((apt) => apt.status === 'completed').length}
               </div>
-              <p className="text-gray-600">{t('thisWeek')}</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('thisWeek')}</p>
             </div>
 
-            <div className="bg-blue-50 dark:bg-gray-500 border rounded-lg p-6">
-              <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
                 <Calendar className="w-5 h-5 dark:text-indigo-400 text-blue-600" />
                 {t('availableSlots')}
               </h2>
-              <div className="text-2xl font-bold dark:text-indigo-700 text-blue-600">
+              <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                 {availableSlotsIn14Days}
               </div>
-              <p className="text-gray-600 dark:text-gray-300">{t('next14Days')}</p>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('next14Days')}</p>
             </div>
-          </div>
         </div>
 
-        <div className="dark:bg-gray-900 border bg-white rounded-xl shadow-lg p-6">
-          <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+          <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
             <Settings className="w-5 h-5 text-indigo-600" />
             {t('bookingSettings')}
           </h2>
-          <div className="flex items-center gap-4">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:gap-4">
             <label className="flex items-center gap-2">
               <input
                 type="checkbox"
@@ -484,7 +489,7 @@ export function DoctorDashboard() {
               />
               {t('requireManualConfirmation')}
             </label>
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-slate-500 dark:text-slate-400">
               {requiresConfirmation
                 ? t('manualConfirmationRequired')
                 : t('autoAcceptAppointments')}
@@ -492,20 +497,20 @@ export function DoctorDashboard() {
           </div>
         </div>
 
-        <div className="grid lg:grid-cols-2 gap-8">
+        <div className="grid gap-6 xl:grid-cols-[minmax(0,1.15fr)_minmax(340px,0.85fr)]">
           <div>
             {followUpAppointments.length > 0 && (
-              <section className="mb-8 rounded-xl border border-indigo-200 bg-indigo-50 p-5 dark:border-indigo-900 dark:bg-indigo-950/30">
-                <h2 className="mb-4 text-xl font-semibold text-indigo-900 dark:text-indigo-100">{t('followUpAppointments')}</h2>
+              <section className="mb-6 rounded-2xl border border-indigo-200 bg-indigo-50/70 p-5 dark:border-indigo-900 dark:bg-indigo-950/30">
+                <h2 className="mb-4 text-lg font-semibold text-indigo-950 dark:text-indigo-100">{t('followUpAppointments')}</h2>
                 <div className="space-y-3">
                   {[...followUpAppointments].sort((a, b) => {
                     const dateA = new Date(`${format(new Date(a.date), 'yyyy-MM-dd')}T${a.time}`);
                     const dateB = new Date(`${format(new Date(b.date), 'yyyy-MM-dd')}T${b.time}`);
                     return dateA.getTime() - dateB.getTime();
                   }).map((followUp) => (
-                    <article key={followUp._id} className="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-900">
-                      <p className="font-medium">{followUp.patientId?.firstName || t('nameNotAvailable')} {followUp.patientId?.lastName || ''}</p>
-                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{format(new Date(followUp.date), 'PPP', { locale: i18n.language === 'fr' ? fr : undefined })} · {followUp.time}</p>
+                    <article key={followUp._id} className="rounded-xl border border-indigo-100 bg-white p-4 shadow-sm dark:border-indigo-900/60 dark:bg-slate-900">
+                      <p className="font-semibold text-slate-900 dark:text-white">{followUp.patientId?.firstName || t('nameNotAvailable')} {followUp.patientId?.lastName || ''}</p>
+                      <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{format(new Date(followUp.date), 'PPP', { locale: i18n.language === 'fr' ? fr : undefined })} · {followUp.time}</p>
                       <span className="mt-2 inline-flex rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100">{t('followUpAppointment')}</span>
                       <button type="button" onClick={() => setPatientRecordAppointment(followUp)} className="ml-3 text-sm font-medium text-indigo-700 hover:underline dark:text-indigo-300">{t('openPatientRecord')}</button>
                       <button type="button" onClick={() => completeAppointment(followUp._id)} className="ml-3 text-sm font-medium text-green-700 hover:underline dark:text-green-300">{t('complete')}</button>
@@ -515,7 +520,7 @@ export function DoctorDashboard() {
               </section>
             )}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-              <h2 className="text-xl font-semibold">{t('upcomingAppointments')}</h2>
+              <h2 className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">{t('upcomingAppointments')}</h2>
               <div className="flex gap-2" role="group" aria-label={t('filterAppointments')}>
                 <button
                   type="button"
@@ -537,7 +542,10 @@ export function DoctorDashboard() {
             </div>
             <div className="space-y-4">
               {displayedAppointments.length === 0 ? (
-                <p className="text-gray-600">{t('noAppointmentsThisWeek')}</p>
+                <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-5 py-10 text-center text-slate-500 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-400">
+                  <Calendar className="mx-auto mb-3 h-9 w-9 text-slate-400" />
+                  <p>{t('noAppointmentsThisWeek')}</p>
+                </div>
               ) : (
                 [...displayedAppointments]
                   .sort((a, b) => {
@@ -548,23 +556,23 @@ export function DoctorDashboard() {
                   .map((appointment) => (
                     <div
                       key={appointment._id}
-                      className="bg-white dark:bg-gray-900 rounded-lg p-4 shadow-sm border"
+                      className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm transition hover:shadow-md dark:border-slate-800 dark:bg-slate-900 sm:p-5"
                     >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h3 className="font-semibold">
+                      <div className="flex flex-col justify-between gap-4 md:flex-row md:items-start">
+                        <div className="min-w-0">
+                          <h3 className="font-semibold text-slate-900 dark:text-white">
                             {t('patient')}:{' '}
                             {appointment.patientId?.firstName || t('nameNotAvailable')}{' '}
                             {appointment.patientId?.lastName || t('nameNotAvailable')}
                           </h3>
-                          <div className="text-sm text-gray-600 flex items-center gap-2 mt-1">
+                          <div className="mt-2 flex items-center gap-2 text-sm text-slate-500 dark:text-slate-400">
                             <Clock className="w-4 h-4" />
                             {format(new Date(appointment.date), 'PPP', {
                               locale: i18n.language === 'fr' ? fr : undefined,
                             })}{' '}
                             {t('at')} {appointment.time}
                           </div>
-                          <p className="mt-2 text-gray-700">{appointment.symptoms}</p>
+                          <p className="mt-3 text-sm leading-6 text-slate-700 dark:text-slate-300">{appointment.symptoms}</p>
                           <p
                             className={clsx(
                               'text-sm font-medium mt-1',
@@ -591,11 +599,11 @@ export function DoctorDashboard() {
                             </p>
                           )}
                         </div>
-                        <div className="flex gap-2 items-center">
+                        <div className="flex flex-wrap items-center gap-2 md:justify-end">
                           {['accepted', 'completed'].includes(appointment.status) && (appointment.patientId as any)?._id && (
                             <button
                               onClick={() => setPatientRecordAppointment(appointment)}
-                              className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/40"
                               title={t('openPatientRecord')}
                             >
                               <FileText className="w-4 h-4" />
@@ -605,7 +613,7 @@ export function DoctorDashboard() {
                           {appointment.status === 'pending' && (
                             <button
                               onClick={() => updateAppointmentStatus(appointment._id, 'accepted')}
-                              className="p-2 text-green-600 hover:bg-green-50 rounded-full"
+                              className="rounded-xl p-2 text-green-700 transition hover:bg-green-50 dark:text-green-300 dark:hover:bg-green-950/40"
                               title={t('accept')}
                             >
                               <CheckCircle className="w-5 h-5" />
@@ -614,7 +622,7 @@ export function DoctorDashboard() {
                           {appointment.status === 'pending' && (
                             <button
                               onClick={() => setAppointmentToRefuse(appointment)}
-                              className="p-2 text-red-600 hover:bg-red-50 rounded-full"
+                              className="rounded-xl p-2 text-red-600 transition hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/40"
                               title={t('refuseAppointment')}
                               aria-label={t('refuseAppointment')}
                             >
@@ -625,7 +633,7 @@ export function DoctorDashboard() {
                             <>
                               <button
                                 onClick={() => openTeleconsultation(appointment)}
-                                className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                                 disabled={!appointment.teleconsultation?.jitsiUrl || !isJoinButtonEnabled(appointment)}
                                 title={t('teleconsultation')}
                               >
@@ -642,7 +650,7 @@ export function DoctorDashboard() {
                           {appointment.status === "accepted" && (
                             <button
                               onClick={() => completeAppointment(appointment._id)}
-                              className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                              className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                               disabled={!isCompleteButtonEnabled(appointment)}
                               title={t('complete')}
                             >
@@ -658,17 +666,16 @@ export function DoctorDashboard() {
 
             <button
               onClick={openHistoricModal}
-              className="mt-4 px-4 py-2 transition-colors bg-indigo-600 text-white rounded-full"
+              className="mt-4 inline-flex min-h-10 items-center rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-200 dark:hover:bg-slate-800"
             >
               {t('history')}
             </button>
           </div>
 
           <div>
-            <AvailabilityManager
-              onUpdateAvailability={setAvailability}
-              appointments={allAppointments}
-            />
+            <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+              <AvailabilityManager onUpdateAvailability={setAvailability} appointments={allAppointments} />
+            </div>
           </div>
         </div>
       </div>

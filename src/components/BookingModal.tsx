@@ -300,7 +300,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-gray-500 bg-opacity-75 flex justify-center items-center z-50"
+      className="fixed inset-0 bg-slate-500 bg-opacity-75 flex justify-center items-center z-50"
       role="dialog"
       aria-modal="true"
     >
@@ -309,11 +309,11 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.8 }}
         transition={{ duration: 0.3, ease: 'easeOut' }}
-        className="bg-white dark:bg-gray-900 rounded-xl shadow-xl p-6 w-full max-w-2xl relative"
+        className="bg-white dark:bg-slate-950 rounded-xl shadow-xl p-6 w-full max-w-2xl relative"
       >
         <button
           onClick={handleClose}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
+          className="absolute right-4 top-4 text-slate-400 hover:text-slate-600"
           aria-label={t('close')}
         >
           <X className="w-6 h-6" />
@@ -323,7 +323,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
           {t('bookAppointment')} {doctor.lastName}
         </h2>
 
-        <form onSubmit={handleSubmit} className="space-y-6 hover:text-gray-600">
+        <form onSubmit={handleSubmit} className="space-y-6 hover:text-slate-600">
           <Calendar
             selectedDate={selectedDate}
             availableSlots={availableSlots}
@@ -357,7 +357,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
                         setSelectedDate(new Date(`${slot.date}T12:00:00`));
                         setSelectedTime(slot.time);
                       }}
-                      className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50 dark:border-amber-700 dark:bg-gray-800 dark:text-indigo-300 dark:hover:bg-gray-700"
+                      className="rounded-xl border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50 dark:border-amber-700 dark:bg-slate-900 dark:text-indigo-300 dark:hover:bg-slate-800"
                     >
                       {format(slot.dateTime, 'EEE d MMM', { locale: dateLocale })} · {slot.time}
                     </button>
@@ -372,7 +372,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
           )}
 
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-2">
+            <label className="block text-sm font-medium text-slate-700 mb-2">
               {t('symptoms')}
             </label>
             {symptoms.length > 0 ? (
@@ -383,39 +383,39 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
                       type="checkbox"
                       checked={selectedSymptoms.includes(symptom)}
                       onChange={() => handleSymptomChange(symptom)}
-                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                      className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-200 rounded"
                     />
-                    <span className="text-sm text-gray-700">{t(symptomTranslationKeys[symptom] || symptom)}</span>
+                    <span className="text-sm text-slate-700">{t(symptomTranslationKeys[symptom] || symptom)}</span>
                   </label>
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-slate-500">
                 {t('noSymptoms')}
               </p>
             )}
           </div>
 
           <div>
-            <label className="flex items-center space-x-2 text-sm font-medium text-gray-700">
+            <label className="flex items-center space-x-2 text-sm font-medium text-slate-700">
               <input
                 type="checkbox"
                 checked={isTeleconsultation}
                 onChange={(e) => setIsTeleconsultation(e.target.checked)}
-                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
+                className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-slate-200 rounded"
               />
               <span>{t('videoConsultation')}</span>
             </label>
           </div>
 
           {hasScheduledSlots && !hasFreeSlot && (
-            <div className="flex items-center justify-between gap-3 rounded-lg bg-indigo-50 p-4 text-sm text-indigo-900 dark:bg-indigo-950 dark:text-indigo-100">
+            <div className="flex items-center justify-between gap-3 rounded-xl bg-indigo-50 p-4 text-sm text-indigo-900 dark:bg-indigo-950 dark:text-indigo-100">
               <span>{t('noFreeSlotWaitlist')}</span>
               <button
                 type="button"
                 onClick={handleJoinWaitlist}
                 disabled={joiningWaitlist || waitlistJoined}
-                className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="shrink-0 rounded-xl bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {joiningWaitlist ? t('joining') : waitlistJoined ? t('joined') : t('waitlist')}
               </button>
@@ -426,7 +426,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
             <button
               type="submit"
               disabled={!selectedTime || selectedSymptoms.length === 0 || selectedDateIsBlocked}
-              className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="bg-indigo-600 text-white px-6 py-2 rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t('confirmAppointment')}
             </button>

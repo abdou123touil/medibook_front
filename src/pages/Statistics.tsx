@@ -287,42 +287,49 @@ useEffect(() => {
 
   if (error) {
     return (
-      <div className="container mx-auto px-4 py-8">
-        <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-          {t('statistics')}
-        </h1>
-        <div className="bg-red-50 dark:bg-red-900 rounded-lg p-6">
-          <p className="text-red-600 dark:text-red-400">{error}</p>
+      <div className={`min-h-screen bg-slate-50 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-6 lg:px-8 ${i18n.language.startsWith('ar') ? 'text-right' : 'text-left'}`} dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}>
+        <div className="mx-auto max-w-7xl space-y-6">
+          <header className="rounded-3xl bg-gradient-to-br from-indigo-700 via-indigo-700 to-violet-600 p-6 text-white shadow-xl shadow-indigo-900/10 sm:p-8">
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-indigo-100">{t('doctorDashboard')}</p>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('statistics')}</h1>
+          </header>
+          <div className="rounded-2xl border border-red-200 bg-red-50 p-5 text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
+            <p>{error}</p>
+          </div>
         </div>
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="space-y-8">
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-          <div className="flex justify-between items-center mb-8">
-            <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              {t('statistics')}
-            </h1>
-            <div className="flex gap-2">
+    <div className={`min-h-screen bg-slate-50 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-6 lg:px-8 ${i18n.language.startsWith('ar') ? 'text-right' : 'text-left'}`} dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}>
+      <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8">
+        <header className="flex flex-col gap-6 overflow-hidden rounded-3xl bg-gradient-to-br from-indigo-700 via-indigo-700 to-violet-600 p-6 text-white shadow-xl shadow-indigo-900/10 sm:p-8 lg:flex-row lg:items-center lg:justify-between">
+          <div className="flex items-start gap-4">
+            <div className="hidden rounded-2xl bg-white/15 p-3 ring-1 ring-white/20 sm:block"><TrendingUp className="h-7 w-7" /></div>
+            <div>
+              <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-indigo-100">{t('doctorDashboard')}</p>
+              <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('statistics')}</h1>
+            </div>
+          </div>
+          <div className="flex flex-wrap gap-2 sm:gap-3">
               <button
                 onClick={exportToCSV}
-                className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700"
+                className="inline-flex min-h-11 items-center rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
               >
                 {t('exportCSV')}
               </button>
               <button
                 onClick={exportToPDF}
-                className="px-4 py-2 bg-green-600 text-white rounded-full hover:bg-green-700"
+                className="inline-flex min-h-11 items-center rounded-xl bg-white px-4 py-2 text-sm font-bold text-indigo-800 shadow-sm transition hover:bg-indigo-50 focus:outline-none focus:ring-2 focus:ring-white/70"
               >
                 {t('exportPDF')}
               </button>
-            </div>
           </div>
+        </header>
 
-          <div className="flex gap-4 mb-6">
+        <div className="relative rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
             <select
               value={timeRange}
               onChange={(e) => {
@@ -331,7 +338,7 @@ useEffect(() => {
                   setIsDateRangePickerOpen(false);
                 }
               }}
-              className="px-3 py-1 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="day">{t('last7Days')}</option>
               <option value="week">{t('lastWeek')}</option>
@@ -343,7 +350,7 @@ useEffect(() => {
             {timeRange === 'custom' && (
               <button
                 onClick={() => setIsDateRangePickerOpen(!isDateRangePickerOpen)}
-                className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
+                className="w-full rounded-xl bg-indigo-600 px-3 py-2.5 text-sm font-semibold text-white transition hover:bg-indigo-700"
               >
                 {t('chooseDates')}
               </button>
@@ -351,7 +358,7 @@ useEffect(() => {
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
-              className="px-3 py-1 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="all">{t('all')}</option>
               <option value="pending">{t('pending')}</option>
@@ -362,7 +369,7 @@ useEffect(() => {
             <select
               value={statType}
               onChange={(e) => setStatType(e.target.value as StatType)}
-              className="px-3 py-1 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="revenue">{t('revenue')}</option>
               <option value="patients">{t('patients')}</option>
@@ -370,7 +377,7 @@ useEffect(() => {
           </div>
 
           {isDateRangePickerOpen && (
-            <div className="absolute z-10 bg-white dark:bg-gray-800 border rounded-lg shadow-lg p-4">
+            <div className="absolute left-4 top-full z-20 mt-2 max-w-[calc(100vw-2rem)] overflow-x-auto rounded-2xl border border-slate-200 bg-white p-3 shadow-xl dark:border-slate-700 dark:bg-slate-900 sm:left-5">
               <DateRangePicker
                 ranges={[dateRange]}
                 onChange={handleDateRangeSelect}
@@ -384,9 +391,9 @@ useEffect(() => {
               <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
             </div>
           ) : (
-            <div className="grid lg:grid-cols-3 gap-6">
-              <div className="bg-green-50 dark:bg-green-900 rounded-lg p-6">
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
                   <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
                   {t('revenue')} {' '}
                   {timeRange === 'month'
@@ -401,83 +408,83 @@ useEffect(() => {
                     ? t('daily')
                     : t('custom').toLowerCase()}
                 </h2>
-                <div className="text-2xl font-bold text-green-600 dark:text-green-400">
+                <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {getStatValue('revenue')}
                 </div>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   {t('fromConsultations')}
                 </p>
               </div>
 
-              <div className="bg-blue-50 dark:bg-blue-900 rounded-lg p-6">
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
                   <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
                   {t('patients')}
                 </h2>
-                <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
+                <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {getStatValue('patients')}
                 </div>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   {t('patientsSeen')}
                 </p>
               </div>
 
-              <div className={`bg-yellow-50 dark:bg-yellow-900 rounded-lg p-6 ${incompleteDetailsCount > 0 ? 'animate-pulse' : ''}`}>
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <div className={`rounded-2xl border p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md ${incompleteDetailsCount > 0 ? 'border-amber-300 bg-amber-50 dark:border-amber-900 dark:bg-amber-950/30' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}>
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300">
                   <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
                   {t('missingDetails')}
                 </h2>
-                <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {incompleteDetailsCount}
                 </div>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   {t('appointmentsWithoutDetails')}
                 </p>
                 {incompleteDetailsCount > 0 && (
                   <button
                     onClick={openHistoricModal}
-                    className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
+                    className="mt-4 inline-flex min-h-10 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
                   >
                     {t('completeDetails')}
                   </button>
                 )}
               </div>
 
-              <div className="bg-red-50 dark:bg-red-900 rounded-lg p-6">
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
                   <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
                   {t('noShowRate')}
                 </h2>
-                <div className="text-2xl font-bold text-red-600 dark:text-red-400">
+                <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {noShowRate.toFixed(2)}%
                 </div>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   {t('missedAppointments')}
                 </p>
               </div>
 
-              <div className="bg-purple-50 dark:bg-purple-900 rounded-lg p-6">
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
                   <UserCheck className="w-5 h-5 text-purple-600 dark:text-purple-400" />
                   {t('returningPatients')}
                 </h2>
-                <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
+                <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {recurrentPatients}
                 </div>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   {t('patientsReturned')}
                 </p>
               </div>
 
-              <div className="bg-teal-50 dark:bg-teal-900 rounded-lg p-6">
-                <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
                   <Clock className="w-5 h-5 text-teal-600 dark:text-teal-400" />
                   {t('peakHours')}
                 </h2>
-                <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">
+                <div className="text-xl font-bold tracking-tight text-slate-900 dark:text-white">
                   {peakHours.length > 0 ? peakHours.map((h) => h.time).join(', ') : t('none')}
                 </div>
-                <p className="text-gray-600 dark:text-gray-300">
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   {t('mostBookedSlots')}
                 </p>
               </div>
@@ -485,21 +492,21 @@ useEffect(() => {
           )}
         </div>
 
-        <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
+        <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
           <div className="flex justify-between items-center mb-6">
-            <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
+            <h2 className="text-lg font-bold tracking-tight text-slate-900 dark:text-white">
               {t('evolution')}
             </h2>
           </div>
 
-          <div className="grid lg:grid-cols-2 gap-6">
-            <div className="h-96">
+          <div className="grid gap-6 xl:grid-cols-2">
+            <div className="h-80 min-w-0 rounded-2xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-950/40 sm:h-96 sm:p-4">
               {isLoading ? (
                 <div className="flex justify-center items-center h-full">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                 </div>
               ) : stats.length === 0 ? (
-                <div className="flex flex-col justify-center items-center h-full bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
+                <div className="flex h-full flex-col items-center justify-center rounded-xl bg-white p-6 dark:bg-slate-900">
                   <BarChartIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
                   <p className="text-gray-600 dark:text-gray-300 text-center">
                     {t('noPeriodData')}
@@ -573,13 +580,13 @@ useEffect(() => {
               )}
             </div>
 
-            <div className="h-96">
+            <div className="h-80 min-w-0 rounded-2xl border border-slate-100 bg-slate-50/60 p-3 dark:border-slate-800 dark:bg-slate-950/40 sm:h-96 sm:p-4">
               {isLoading ? (
                 <div className="flex justify-center items-center h-full">
                   <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-indigo-600"></div>
                 </div>
               ) : statusDistribution.length === 0 ? (
-                <div className="flex flex-col justify-center items-center h-full bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
+                <div className="flex h-full flex-col items-center justify-center rounded-xl bg-white p-6 dark:bg-slate-900">
                   <PieChartIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
                   <p className="text-gray-600 dark:text-gray-300 text-center">
                     {t('noStatusData')}

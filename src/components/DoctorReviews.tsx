@@ -48,7 +48,7 @@ export function DoctorReviews() {
 
       <div className="space-y-6">
         {reviews.map((review) => (
-          <div key={review._id} className="border-b border-gray-100 pb-6 last:border-0">
+          <div key={review._id} className="border-b border-slate-100 pb-6 last:border-0">
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <div className="flex">
@@ -63,12 +63,12 @@ export function DoctorReviews() {
                 </div>
                 <span className="font-medium">{review.patientName}</span>
               </div>
-              <span className="text-sm text-gray-500">
+              <span className="text-sm text-slate-500">
                 {format(new Date(review.date), 'PP', { locale: fr })}
               </span>
             </div>
-            <p className="text-gray-600 mb-3">{review.comment}</p>
-            <button className="flex items-center gap-1 text-sm text-gray-500 hover:text-indigo-600">
+            <p className="text-slate-600 mb-3">{review.comment}</p>
+            <button className="flex items-center gap-1 text-sm text-slate-500 hover:text-indigo-600">
               <ThumbsUp className="w-4 h-4" />
               <span>Utile ({review.helpful})</span>
             </button>
@@ -90,7 +90,7 @@ export function DoctorReviews() {
           ))}
         </div>
         <textarea
-          className="mt-2 w-full p-2 border border-gray-300 rounded-md"
+          className="mt-2 w-full p-2 border border-slate-200 rounded-md"
           placeholder={t('yourReview')}
           value={newReview.comment}
           onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}

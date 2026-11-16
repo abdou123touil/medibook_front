@@ -158,17 +158,17 @@ export function Navigation() {
 
   return (
     <>
-      <nav className="bg-white dark:bg-gray-900 shadow-lg">
+      <nav className="border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
         <div className="container mx-auto px-4">
-          <div className="flex dark:text-indigo-400 justify-between items-center h-16">
-            <img onClick={uselrole} src={logo} alt="Logo" className="w-20 h-19" />
+          <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-2 dark:text-indigo-400">
+            <img onClick={uselrole} src={logo} alt="Logo" className="h-14 w-20 cursor-pointer object-contain" />
 
-            <div className="flex items-center space-x-4">
+            <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
               <ThemeToggle />
               <select
                 value={i18n.language}
                 onChange={(e) => changeLanguage(e.target.value)}
-                className="p-2 border border-gray-300 rounded-lg dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 focus:ring-2 focus:ring-emerald-500"
+                className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm text-slate-800 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-100"
               >
                 <option value="fr">Français</option>
                 <option value="ar">العربية</option>
@@ -178,7 +178,7 @@ export function Navigation() {
                 <>
                   <button
                     onClick={() => navigate('/profile')}
-                    className="flex items-center space-x-2 dark:text-white text-gray-700 hover:text-indigo-600"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-indigo-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-indigo-300"
                   >
                     <UserCircle className="w-5 h-5" />
                     <span>{user?.data?.firstName || t("profile")}</span>
@@ -186,7 +186,7 @@ export function Navigation() {
 
                   <button
                     onClick={() => setIsChatOpen(!isChatOpen)}
-                    className="flex items-center space-x-2 dark:text-white text-gray-700 hover:text-indigo-600"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-indigo-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-indigo-300"
                   >
                     <MessageSquare className="w-5 h-5" />
                     <span>{t("chat")}</span>
@@ -197,7 +197,7 @@ export function Navigation() {
                   {user?.data?.role === "doctor" && (
                     <Link
                       to="/doctor/statistics"
-                      className="flex items-center space-x-2 dark:text-white text-gray-700 hover:text-indigo-600"
+                      className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-indigo-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-indigo-300"
                     >
                       <TrendingUp className="w-5 h-5" />
                       <span>{t("statistics")}</span>
@@ -207,7 +207,7 @@ export function Navigation() {
                   {user?.data?.role === "client" && (
                     <Link
                       to="/patient/dashboard"
-                      className="flex items-center space-x-2 dark:text-white text-gray-700 hover:text-emerald-600"
+                      className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-indigo-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-indigo-300"
                     >
                       <BarChart className="w-5 h-5" />
                       <span>{t("dashboard")}</span>
@@ -219,7 +219,7 @@ export function Navigation() {
                       initial={{ right: "-400px" }}
                       animate={{ right: 0 }}
                       exit={{ right: "-400px" }}
-                      className="fixed top-2 right-0 z-50 w-[500px] h-full"
+                      className="fixed inset-y-2 right-2 z-50 h-[calc(100vh-1rem)] w-[min(500px,calc(100vw-1rem))]"
                     >
                       <Chat onClose={handleClose} />
                     </motion.div>
@@ -233,7 +233,7 @@ export function Navigation() {
                     >
                       <Link
                         to="/profile-completion"
-                        className="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600 transition-colors"
+                        className="inline-flex min-h-10 items-center rounded-xl bg-amber-500 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-600"
                       >
                         {t("completeProfile")}
                       </Link>
@@ -242,7 +242,7 @@ export function Navigation() {
                    <div className="relative">
                     <button
                       onClick={() => setIsNotificationsOpen((open) => !open)}
-                      className="relative flex items-center space-x-2 dark:text-white text-gray-700 hover:text-indigo-600"
+                      className="relative inline-flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-700 transition hover:bg-slate-100 hover:text-indigo-700 dark:text-slate-200 dark:hover:bg-slate-800 dark:hover:text-indigo-300"
                       aria-label="Afficher les notifications"
                       aria-expanded={isNotificationsOpen}
                     >
@@ -264,7 +264,7 @@ export function Navigation() {
                   </div>
                   <button
                     onClick={handleLogout}
-                    className="flex items-center space-x-2 dark:text-white text-gray-600 hover:text-gray-800"
+                    className="inline-flex min-h-10 items-center gap-2 rounded-xl px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
                   >
                     <LogOut className="w-5 h-5" />
                     <span>{t("logout")}</span>
@@ -273,7 +273,7 @@ export function Navigation() {
               ) : (
                 <button
                   onClick={() => setIsAuthModalOpen(true)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+                  className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
                 >
                   <LogIn className="w-5 h-5" />
                   <span>{t("login")}</span>

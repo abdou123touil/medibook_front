@@ -43,7 +43,7 @@ export function Prescriptions({ prescriptions }: PrescriptionsProps) {
   };
 
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
+    <div className="bg-white rounded-xl shadow-lg p-6 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
       <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
         <Pill className="w-6 h-6 text-indigo-600" />
         {t('prescriptionsTitle')}
@@ -53,12 +53,12 @@ export function Prescriptions({ prescriptions }: PrescriptionsProps) {
         {prescriptions.map((prescription) => (
           <div
             key={prescription.id}
-            className="border rounded-lg p-4 hover:shadow-md transition-shadow"
+            className="border rounded-xl p-4 hover:shadow-md transition-shadow"
           >
             <div className="flex items-center justify-between mb-4">
               <div>
                 <h3 className="font-semibold">Dr. {prescription.doctor}</h3>
-                <div className="text-sm text-gray-500 flex items-center gap-1">
+                <div className="text-sm text-slate-500 flex items-center gap-1">
                   <Calendar className="w-4 h-4" />
                   {prescription.date}
                 </div>
@@ -70,21 +70,21 @@ export function Prescriptions({ prescriptions }: PrescriptionsProps) {
 
             <div className="space-y-3">
               {prescription.medications.map((med, index) => (
-                <div key={index} className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg dark:bg-gray-600 dark:text-gray-100">
+                <div key={index} className="flex items-start gap-3 p-2 bg-slate-50 rounded-xl dark:bg-slate-700 dark:text-slate-100">
                   <Pill className="w-5 h-5 text-indigo-600 mt-1" />
                   <div>
                     <h4 className="font-medium">{med.name}</h4>
                     {(med.dosage || med.frequency) && (
-                      <p className="text-sm text-gray-600">{[med.dosage, med.frequency].filter(Boolean).join(' - ')}</p>
+                      <p className="text-sm text-slate-600">{[med.dosage, med.frequency].filter(Boolean).join(' - ')}</p>
                     )}
-                    {med.duration && <p className="text-sm text-gray-500">{t('duration')}: {med.duration}</p>}
+                    {med.duration && <p className="text-sm text-slate-500">{t('duration')}: {med.duration}</p>}
                   </div>
                 </div>
               ))}
             </div>
 
             {prescription.notes && (
-              <div className="mt-4 p-3 bg-yellow-50 rounded-lg">
+              <div className="mt-4 p-3 bg-yellow-50 rounded-xl">
                 <div className="flex items-center gap-2 text-yellow-800">
                   <FileText className="w-4 h-4" />
                   <span className="font-medium">{t('notes')}</span>
@@ -94,7 +94,7 @@ export function Prescriptions({ prescriptions }: PrescriptionsProps) {
             )}
           </div>
         ))}
-        {prescriptions.length === 0 && <p className="text-sm text-gray-500">{t('noPrescriptions')}</p>}
+        {prescriptions.length === 0 && <p className="text-sm text-slate-500">{t('noPrescriptions')}</p>}
       </div>
     </div>
   );

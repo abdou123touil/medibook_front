@@ -226,38 +226,38 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
-          className="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 flex justify-center items-center z-50"
+          className="fixed inset-0 bg-slate-500 dark:bg-slate-950 bg-opacity-75 flex justify-center items-center z-50"
         >
           <motion.div
             initial={{ scale: 0.8, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={{ scale: 0.8, opacity: 0 }}
             transition={{ duration: 0.3, ease: 'easeOut' }}
-            className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto shadow-lg"
+            className="bg-white dark:bg-slate-900 rounded-xl p-6 w-full max-w-2xl max-h-[80vh] overflow-y-auto shadow-lg"
           >
             <button
               onClick={onClose}
-              className="absolute top-4 right-4 text-gray-500 dark:text-gray-300 hover:text-gray-700 dark:hover:text-gray-100"
+              className="absolute top-4 right-4 text-slate-500 dark:text-slate-300 hover:text-slate-700 dark:hover:text-gray-100"
             >
               <X className="w-6 h-6" />
             </button>
-            <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center gap-2">
+            <h2 className="text-2xl font-semibold text-slate-900 dark:text-slate-100 mb-6 flex items-center gap-2">
               <Clock className="w-6 h-6 text-indigo-600" />
               {title || t('appointmentHistory')}
             </h2>
 
             <div className="space-y-4">
               {appointments.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-center dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ">
+                <p className="text-slate-500 dark:text-slate-400 text-center dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 ">
                   {t('noAppointmentsFound')}
                 </p>
               ) : isLoadingAppointmentDetails ? (
-                <p className="text-gray-500 dark:text-gray-400 text-center py-6">{t('loading')}</p>
+                <p className="text-slate-500 dark:text-slate-400 text-center py-6">{t('loading')}</p>
               ) : (
                 orderedAppointments.map((appointment) => (
                   <div
                     key={appointment._id}
-                    className={`rounded-lg p-4 shadow-sm border dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${
+                    className={`rounded-xl p-4 shadow-sm border dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100 ${
                       appointment.status === 'cancelled'
                         ? 'bg-red-50 border-red-200'
                         : appointment.status === 'completed'
@@ -265,21 +265,21 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                         : 'bg-blue-50 border-blue-200'
                     }`}
                   >
-                    <div className="flex justify-between items-start dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
+                    <div className="flex justify-between items-start dark:bg-slate-800 dark:border-slate-700 dark:text-slate-100">
                       <div>
-                        <h3 className="font-semibold text-gray-900 dark:text-gray-100">
+                        <h3 className="font-semibold text-slate-900 dark:text-slate-100">
                           {t('patient')}: {appointment.patientId?.firstName || t('nameNotAvailable')}{' '}
                           {appointment.patientId?.lastName || t('nameNotAvailable')}
                         </h3>
-                        <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 mt-1">
+                        <div className="text-sm text-slate-600 dark:text-slate-400 flex items-center gap-2 mt-1">
                           <Clock className="w-4 h-4" />
                           {format(new Date(appointment.date), 'PPP', { locale: fr })} {t('at')}{' '}
                           {appointment.time}
                         </div>
-                        <p className="mt-2 text-gray-700 dark:text-gray-300">
+                        <p className="mt-2 text-slate-700 dark:text-slate-300">
                           {t('symptoms')}: {appointment.symptoms || t('notSpecified')}
                         </p>
-                        <p className="mt-1 text-gray-700 dark:text-gray-300">
+                        <p className="mt-1 text-slate-700 dark:text-slate-300">
                           {t('status')}: {' '}
                           <span
                             className={`font-medium ${
@@ -304,17 +304,17 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                     {appointment.status === 'completed' && (
                       <div className="mt-4">
                         {appointmentDetails[appointment._id] ? (
-                          <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-md">
-                            <h4 className="font-semibold text-gray-900 dark:text-gray-100">
+                          <div className="bg-slate-100 dark:bg-slate-800 p-4 rounded-md">
+                            <h4 className="font-semibold text-slate-900 dark:text-slate-100">
                               {t('appointmentDetails')}
                             </h4>
-                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                            <p className="text-sm text-slate-600 dark:text-slate-300">
                               {t('price')}: {appointmentDetails[appointment._id].tarif} DT
                             </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                            <p className="text-sm text-slate-600 dark:text-slate-300">
                               {t('cause')}: {appointmentDetails[appointment._id].cause}
                             </p>
-                            <p className="text-sm text-gray-600 dark:text-gray-300">
+                            <p className="text-sm text-slate-600 dark:text-slate-300">
                               {t('medications')}: {' '}
                               {appointmentDetails[appointment._id].medicaments.join(', ')}
                             </p>
@@ -333,13 +333,13 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                     )}
 
                     {selectedAppointment?._id === appointment._id && (
-                      <div className="mt-4 border-t border-gray-200 dark:border-gray-600 pt-4">
-                        <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
+                      <div className="mt-4 border-t border-slate-200 dark:border-slate-700 pt-4">
+                        <h4 className="text-lg font-semibold text-slate-900 dark:text-slate-100 mb-4">
                             {t('addDetails')}
                         </h4>
                         <div className="space-y-4">
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                               {t('priceDT')}
                             </label>
                             <input
@@ -348,11 +348,11 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                               value={details.tarif}
                               onChange={handleInputChange}
                               min="40"
-                              className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
+                              className="mt-1 block w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                               {t('cause')}
                             </label>
                             <textarea
@@ -360,11 +360,11 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                               value={details.cause}
                               onChange={handleInputChange}
                               rows={3}
-                              className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
+                              className="mt-1 block w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
                             />
                           </div>
                           <div>
-                            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
+                            <label className="block text-sm font-medium text-slate-700 dark:text-slate-300">
                               {t('medications')}
                             </label>
                             <div className="relative flex gap-2">
@@ -375,32 +375,32 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                                 onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); handleAddMedicament(); } }}
                                 placeholder={t('searchMedication')}
                                 autoComplete="off"
-                                className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
+                                className="mt-1 block w-full rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-slate-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
                               />
                               <button
                                 type="button"
                                 onClick={handleAddMedicament}
-                                className="mt-1 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                                className="mt-1 px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700"
                               >
                                 <Pill className="w-5 h-5" />
                               </button>
                               {(isSearchingMedications || medicationSuggestions.length > 0) && (
-                                <div className="absolute left-0 right-14 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800">
-                                  {isSearchingMedications && <p className="px-3 py-2 text-sm text-gray-500">{t('searchingMedications')}</p>}
+                                <div className="absolute left-0 right-14 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white shadow-lg dark:border-slate-700 dark:bg-slate-900">
+                                  {isSearchingMedications && <p className="px-3 py-2 text-sm text-slate-500">{t('searchingMedications')}</p>}
                                   {medicationSuggestions.map((suggestion) => (
-                                    <button key={suggestion} type="button" onClick={() => selectMedication(suggestion)} className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-indigo-50 dark:text-gray-100 dark:hover:bg-gray-700">
+                                    <button key={suggestion} type="button" onClick={() => selectMedication(suggestion)} className="block w-full px-3 py-2 text-left text-sm text-slate-800 hover:bg-indigo-50 dark:text-slate-100 dark:hover:bg-slate-800">
                                       {suggestion}
                                     </button>
                                   ))}
                                 </div>
                               )}
                             </div>
-                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('medicationCatalogDisclaimer')}</p>
+                            <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t('medicationCatalogDisclaimer')}</p>
                             <ul className="mt-2 space-y-1">
                               {details.medicaments.map((med, index) => (
                                 <li
                                   key={index}
-                                  className="flex justify-between items-center text-sm text-gray-700 dark:text-gray-300"
+                                  className="flex justify-between items-center text-sm text-slate-700 dark:text-slate-300"
                                 >
                                   <span>{med}</span>
                                   <button
@@ -420,7 +420,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                                 setSelectedAppointment(null);
                                 setDetails({ tarif: 0, medicaments: [], cause: '' });
                               }}
-                              className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
+                              className="px-4 py-2 text-slate-700 dark:text-slate-300 bg-slate-200 dark:bg-slate-800 rounded-xl hover:bg-gray-300 dark:hover:bg-slate-700"
                             >
                               {t('cancel')}
                             </button>
@@ -428,7 +428,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                               type="button"
                               onClick={() => handleSubmitDetails(appointment._id)}
                               disabled={isSubmitting}
-                              className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
+                              className="px-4 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                               <Save className="w-5 h-5" />
                               {isSubmitting ? t('saving') : t('save')}

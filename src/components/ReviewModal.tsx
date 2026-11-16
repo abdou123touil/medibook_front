@@ -217,20 +217,20 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
       initial={{ opacity: 0 }}
       animate={{ opacity: 1 }}
       exit={{ opacity: 0 }}
-      className="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 flex justify-center items-center"
+      className="fixed inset-0 bg-slate-500 dark:bg-slate-950 bg-opacity-75 flex justify-center items-center"
     >
       <motion.div
         initial={{ opacity: 0, scale: 0.8 }}
         animate={{ opacity: 1, scale: 1 }}
         exit={{ opacity: 0, scale: 0.8 }}
         transition={{ duration: 0.3, ease: "easeOut" }}
-        className="fixed inset-0 bg-gray-500 dark:bg-gray-900 bg-opacity-75 flex justify-center items-center"
+        className="fixed inset-0 bg-slate-500 dark:bg-slate-950 bg-opacity-75 flex justify-center items-center"
       >
-        <div className="fixed inset-0 bg-black dark:bg-gray-900 bg-opacity-50 flex justify-center items-center z-50">
+        <div className="fixed inset-0 bg-black dark:bg-slate-950 bg-opacity-50 flex justify-center items-center z-50">
           <div className="bg-white dark:bg-black rounded-xl shadow-lg p-6 w-96 relative">
             <button
               onClick={onClose}
-              className="absolute top-2 right-2 text-gray-500 hover:text-gray-700"
+              className="absolute top-2 right-2 text-slate-500 hover:text-slate-700"
             >
               <X className="w-6 h-6" />
             </button>
@@ -271,12 +271,12 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
                           {review.patientName}
                         </span>
                       </div>
-                      <span className="text-sm text-gray-500">
+                      <span className="text-sm text-slate-500">
                         {format(new Date(review.date), "PP", { locale: i18n.language.startsWith('ar') ? undefined : i18n.language.startsWith('en') ? undefined : fr })}
                       </span>
                     </div>
 
-                    <p className="text-gray-600">{review.comment}</p>
+                    <p className="text-slate-600">{review.comment}</p>
 
                     <div className="flex gap-4 mt-3">
                       {["like", "heart", "dislike"].map((reaction) => {
@@ -289,7 +289,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
                             onClick={() => handleReaction(review._id, reaction)}
                           >
                             {reaction === "like" && (
-                              <ThumbsUp className="w-6 h-6 text-gray-500" />
+                              <ThumbsUp className="w-6 h-6 text-slate-500" />
                             )}
                             {reaction === "heart" && (
                               <Heart className="w-6 h-6 text-red-500" />
@@ -297,7 +297,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
                             {reaction === "dislike" && (
                               <ThumbsDown className="w-6 h-6 text-yellow-500" />
                             )}
-                            <span className="text-gray-700 font-medium">
+                            <span className="text-slate-700 font-medium">
                               {count}
                             </span>
                           </motion.div>
@@ -307,7 +307,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
                   </div>
                 ))
               ) : (
-                <p className="text-gray-500">{t('noDoctorReviews')}</p>
+                <p className="text-slate-500">{t('noDoctorReviews')}</p>
               )}
             </div>
 
@@ -328,7 +328,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
                 ))}
               </div>
               <textarea
-                className="mt-2 w-full p-2 border dark:bg-gray-900 border-gray-300 rounded-md"
+                className="mt-2 w-full p-2 border dark:bg-slate-950 border-slate-200 rounded-md"
                 placeholder={t('yourReview')}
                 value={newReview.comment}
                 onChange={(e) =>

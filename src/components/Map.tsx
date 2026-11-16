@@ -32,7 +32,7 @@ export function Map({ onLocationSelect, initialPosition = [36.875097769579504, 1
     <MapContainer
       center={initialPosition}
       zoom={13}
-      className="h-full w-full rounded-lg"
+      className="h-full w-full rounded-xl"
     >
       <TileLayer
         attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'

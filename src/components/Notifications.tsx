@@ -26,8 +26,8 @@ export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, 
   const { t } = useTranslation();
   return (
     <div className="relative ">
-      <div className="absolute right-0 w-96 mt-2 bg-white rounded-xl shadow-lg z-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
-        <div className="p-4 border-b border-gray-100">
+      <div className="absolute right-0 z-50 mt-2 w-[min(24rem,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-slate-200 bg-white text-slate-900 shadow-xl dark:border-slate-800 dark:bg-slate-900 dark:text-slate-100">
+        <div className="border-b border-slate-100 p-4 dark:border-slate-800">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Bell className="w-5 h-5 text-indigo-600" />
             {t('notification')}
@@ -35,15 +35,15 @@ export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, 
         </div>
         <div className="max-h-96 overflow-y-auto">
           {notifications.length === 0 && (
-            <p className="p-5 text-sm text-gray-500">{t('noNotifications')}</p>
+            <p className="p-5 text-sm text-slate-500">{t('noNotifications')}</p>
           )}
           {notifications.map((notification) => (
             <div
               key={notification.id}
               role="button"
               tabIndex={0}
-              className={`p-4 border-b border-gray-100 last:border-0 ${
-                !notification.read ? 'bg-indigo-50' : ''
+              className={`border-b border-slate-100 p-4 transition last:border-0 dark:border-slate-800 ${
+                !notification.read ? 'bg-indigo-50/70 dark:bg-indigo-950/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60'
               }`}
               onClick={() => !notification.read && onMarkAsRead(notification.id)}
               onKeyDown={(event) => {
@@ -63,9 +63,9 @@ export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, 
                   <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
                 )}
                 <div>
-                  <h4 className="font-medium text-gray-900 dark:text-gray-300">{notification.title}</h4>
-                  <p className="text-sm text-gray-600 dark:text-gray-400">{notification.message}</p>
-                  <span className="text-xs text-gray-500 mt-1 dark:text-gray-400">{notification.time}</span>
+                  <h4 className="font-semibold text-slate-900 dark:text-white">{notification.title}</h4>
+                  <p className="text-sm text-slate-600 dark:text-slate-400">{notification.message}</p>
+                  <span className="text-xs text-slate-500 mt-1 dark:text-slate-400">{notification.time}</span>
                   {notification.action === 'confirm_waitlist' && notification.waitlistEntryId && (
                     <button
                       type="button"
@@ -73,7 +73,7 @@ export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, 
                         event.stopPropagation();
                         onConfirmWaitlist?.(notification);
                       }}
-                      className="mt-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+                      className="mt-2 rounded-xl bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
                     >
                       {t('confirmSlot')}
                     </button>
@@ -86,7 +86,7 @@ export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, 
                           event.stopPropagation();
                           onRescheduleAppointment?.(notification);
                         }}
-                        className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
+                        className="rounded-xl bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
                       >
                         {t('chooseAnotherSlot')}
                       </button>
@@ -96,7 +96,7 @@ export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, 
                           event.stopPropagation();
                           onKeepCancellation?.(notification);
                         }}
-                        className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-600"
+                        className="rounded-xl border border-slate-200 px-3 py-1.5 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-600 dark:text-slate-200 dark:hover:bg-slate-700"
                       >
                         {t('keepCancellation')}
                       </button>

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from "react";
 import { apiFetch } from "../lib/api";
 import { useLocation, useNavigate } from "react-router-dom";
-import { Search, Calendar, Clock } from "lucide-react";
+import { Search, Calendar, Clock, Stethoscope, ArrowUpRight, X } from "lucide-react";
 import { BookingModal } from "../components/BookingModal";
 import { ReviewModal } from "../components/ReviewModal";
 import DoctorSkeleton from "../components/DoctorSkeleton"; // Import du Skeleton
@@ -28,7 +28,7 @@ interface Doctor {
 }
 
 export function ClientDashboard() {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("");
@@ -81,15 +81,6 @@ export function ClientDashboard() {
     navigate(location.pathname, { replace: true, state: null });
   }, [doctors, loading, location.pathname, location.state, navigate, t]);
 
-  const handleBookAppointment = (appointment: {
-    date: Date;
-    time: string;
-    symptoms: string;
-  }) => {
-    
-    // TODO: Implémenter la logique de prise de RDV
-  };
-
   const filteredDoctors = doctors.filter((doctor) => {
     const matchesSearch =
       doctor.firstName.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -103,128 +94,130 @@ export function ClientDashboard() {
   });
 
   return (
-    <div className="container mx-auto px-4 py-8">
-      <div className="grid md:grid-cols-12 gap-6">
-        {/* Filtres */}
-        <div className="md:col-span-3  space-y-6">
-          <div className="bg-white dark:bg-gray-900 border rounded-xl shadow-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">{t('specialties')}</h2>
-            <div className="space-y-2">
+    <div className="min-h-screen bg-slate-50 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-6 lg:px-8" dir={i18n.language.startsWith('ar') ? 'rtl' : 'ltr'}>
+      <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8">
+        <section className="relative overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-700 via-emerald-700 to-teal-600 p-6 text-white shadow-xl shadow-emerald-900/10 sm:p-8">
+          <div className="pointer-events-none absolute -end-10 -top-16 h-56 w-56 rounded-full bg-white/10 blur-2xl" />
+          <div className="relative flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-4">
+              <span className="hidden rounded-2xl bg-white/15 p-3 ring-1 ring-white/20 sm:inline-flex"><Stethoscope className="h-7 w-7" /></span>
+              <div>
+                <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">{t('homeSpecialistsTitle')}</p>
+                <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('findDoctor')}</h1>
+                <p className="mt-2 max-w-2xl text-sm leading-6 text-emerald-50 sm:text-base">{t('homeSubtitle')}</p>
+              </div>
+            </div>
+            <div className="flex items-center gap-3 rounded-2xl border border-white/20 bg-white/10 px-4 py-3 text-sm font-medium text-white/95 backdrop-blur-sm">
+              <Calendar className="h-5 w-5 shrink-0" />
+              <span>{t('bookAppointment')}</span>
+              <ArrowUpRight className="h-4 w-4 shrink-0" />
+            </div>
+          </div>
+        </section>
+
+        <div className="grid gap-5 lg:grid-cols-[250px_minmax(0,1fr)]">
+          <aside className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 lg:sticky lg:top-6 lg:h-fit">
+            <div className="mb-3 flex items-center justify-between px-1">
+              <h2 className="text-sm font-bold text-slate-900 dark:text-white">{t('specialties')}</h2>
+              <span className="text-xs text-slate-400">{specialties.length + 1}</span>
+            </div>
+            <div className="flex gap-2 overflow-x-auto pb-1 lg:flex-col lg:overflow-visible">
               <button
-                onClick={() => setSelectedSpecialty("")}
-                className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                  selectedSpecialty === ""
-                    ? "bg-indigo-100 text-indigo-700"
-                    : "hover:bg-gray-100 hover:text-indigo-700"
-                }`}
-              >
-                {t('allSpecialties')}
-              </button>
+                type="button"
+                onClick={() => setSelectedSpecialty('')}
+                aria-pressed={!selectedSpecialty}
+                className={`shrink-0 rounded-xl px-3 py-2.5 text-start text-sm font-semibold transition lg:w-full ${!selectedSpecialty ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-200 dark:ring-emerald-900' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}`}
+              >{t('allSpecialties')}</button>
               {specialties.map((specialty) => (
                 <button
                   key={specialty.value}
+                  type="button"
                   onClick={() => setSelectedSpecialty(specialty.value)}
-                  className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                    selectedSpecialty === specialty.value
-                      ? "bg-indigo-100 text-indigo-700"
-                      : "hover:bg-gray-100 hover:text-indigo-700"
-                  }`}
-                >
-                  {t(specialty.key)}
-                </button>
+                  aria-pressed={selectedSpecialty === specialty.value}
+                  className={`shrink-0 rounded-xl px-3 py-2.5 text-start text-sm font-medium transition lg:w-full ${selectedSpecialty === specialty.value ? 'bg-emerald-50 text-emerald-800 ring-1 ring-emerald-200 dark:bg-emerald-950/50 dark:text-emerald-200 dark:ring-emerald-900' : 'text-slate-600 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800'}`}
+                >{t(specialty.key)}</button>
               ))}
             </div>
-          </div>
-        </div>
+          </aside>
 
-        {/* Liste des médecins */}
-        <div className="md:col-span-9">
-          <div className="bg-white border dark:bg-gray-900 rounded-xl shadow-lg p-6">
-            <div className="flex items-center gap-4 mb-6">
-              <div className="flex-1 relative">
-                <Search className="absolute left-3 top-1/2 transform -translate-y-1/2  text-gray-400 w-5 h-5" />
-                <input
-                  type="text"
-                  placeholder={t('searchDoctor')}
-                  className="w-full pl-10 pr-4 py-2 rounded-lg dark:bg-gray-900 border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                />
+          <main className="min-w-0 space-y-4">
+            <section className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+                <label className="relative block min-w-0 flex-1">
+                  <Search className="pointer-events-none absolute start-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-400" />
+                  <input
+                    type="search"
+                    placeholder={t('searchDoctor')}
+                    aria-label={t('searchDoctor')}
+                    className="min-h-12 w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pe-10 ps-10 text-sm text-slate-900 outline-none transition placeholder:text-slate-400 focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
+                    value={searchQuery}
+                    onChange={(event) => setSearchQuery(event.target.value)}
+                  />
+                  {searchQuery && <button type="button" onClick={() => setSearchQuery('')} aria-label={t('close')} className="absolute end-3 top-1/2 -translate-y-1/2 rounded-md p-1 text-slate-400 hover:bg-slate-200 dark:hover:bg-slate-700"><X className="h-4 w-4" /></button>}
+                </label>
+                <div className="flex shrink-0 items-center gap-2 rounded-xl bg-slate-50 px-3 py-2.5 text-sm text-slate-600 dark:bg-slate-800 dark:text-slate-300">
+                  <Stethoscope className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />
+                  <span className="font-semibold tabular-nums">{loading ? '—' : filteredDoctors.length}</span>
+                  <span>{t('doctorResults', { count: filteredDoctors.length })}</span>
+                </div>
               </div>
-            </div>
+            </section>
+
+            {error && <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">{error}</div>}
 
             {loading ? (
-            
-              <div className="text-center py-12">
-                <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">{t('loadingDoctors')}</p>
-              </div>
+              <div className="grid gap-4 md:grid-cols-2">{[...Array(4)].map((_, index) => <DoctorSkeleton key={index} />)}</div>
             ) : filteredDoctors.length === 0 ? (
-            
-              <div className="text-center py-12">
-                <p className="text-gray-600">
+              <section className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center dark:border-slate-700 dark:bg-slate-900">
+                <Search className="mx-auto mb-4 h-10 w-10 text-slate-400" />
+                <p className="mx-auto max-w-md text-slate-600 dark:text-slate-300">
                   {selectedSpecialty
                     ? t('noDoctorForSpecialty', { specialty: t(specialtyKeys[selectedSpecialty.toLowerCase()] || selectedSpecialty) })
                     : t('noDoctorFound')}
                 </p>
-                <div className="grid md:grid-cols-2 gap-4 mt-4">
-                  {[...Array(4)].map((_, index) => (
-                    <DoctorSkeleton key={index} />
-                  ))}
-                </div>
-              </div>
+                {(searchQuery || selectedSpecialty) && <button type="button" onClick={() => { setSearchQuery(''); setSelectedSpecialty(''); }} className="mt-4 rounded-xl px-4 py-2 text-sm font-semibold text-emerald-700 hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/50">{t('allSpecialties')}</button>}
+              </section>
             ) : (
-             
-              <div className="grid md:grid-cols-2 gap-4">
-                {filteredDoctors.map((doctor) => (
-                  <div
-                    key={doctor._id}
-                    className="bg-white dark:bg-gray-900 border rounded-lg p-6 hover:shadow-lg transition-shadow"
-                  >
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <h3 className="text-lg font-semibold">
-                          Dr. {doctor.lastName}
-                        </h3>
-                        <p className="text-indigo-600">{t(specialtyKeys[doctor.speciality?.toLowerCase()] || doctor.speciality)}</p>
-                        <p className="text-sm text-gray-600 mt-2">
-                          {doctor.description}
-                        </p>
+              <div className="grid gap-4 md:grid-cols-2">
+                {filteredDoctors.map((doctor) => {
+                  const slotCount = Object.entries(doctor.availability || {}).reduce((total, [date, slots]) => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    return date >= today && Array.isArray(slots) ? total + slots.length : total;
+                  }, 0);
+                  return (
+                    <article key={doctor._id || doctor.id} className="group flex min-h-full flex-col rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:border-emerald-200 hover:shadow-lg dark:border-slate-800 dark:bg-slate-900 dark:hover:border-emerald-900 sm:p-6">
+                      <div className="flex items-start gap-4">
+                        <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-2xl bg-gradient-to-br from-emerald-100 to-teal-100 text-lg font-bold text-emerald-800 dark:from-emerald-950 dark:to-teal-950 dark:text-emerald-200">
+                          {(doctor.firstName?.[0] || 'D').toUpperCase()}{(doctor.lastName?.[0] || '').toUpperCase()}
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <h3 className="truncate text-lg font-bold text-slate-900 dark:text-white">Dr. {doctor.firstName} {doctor.lastName}</h3>
+                          <span className="mt-1 inline-flex rounded-full bg-emerald-50 px-2.5 py-1 text-xs font-semibold text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">{t(specialtyKeys[doctor.speciality?.toLowerCase()] || doctor.speciality)}</span>
+                        </div>
                       </div>
-                    </div>
-                    <div className="mt-4 flex items-center gap-4">
-                      <div className="flex items-center text-sm text-gray-600">
-                        <Calendar className="w-4 h-4 mr-1" />
-                        {t('nextAvailableAppointment')}
+                      <p className="mt-4 min-h-[3.5rem] text-sm leading-6 text-slate-600 line-clamp-3 dark:text-slate-300">{doctor.description || t('notProvided')}</p>
+                      <div className="mt-4 flex flex-wrap items-center gap-x-4 gap-y-2 border-t border-slate-100 pt-4 text-xs font-medium text-slate-500 dark:border-slate-800 dark:text-slate-400">
+                        <span className="inline-flex items-center gap-1.5"><Calendar className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />{t('nextAvailableAppointment')}</span>
+                        <span className="inline-flex items-center gap-1.5"><Clock className="h-4 w-4 text-emerald-600 dark:text-emerald-400" />{slotCount} {t('availableSlots')}</span>
                       </div>
-                      <div className="flex items-center text-sm font-semibold text-indigo-600">
-                        <Clock className="w-4 h-4 mr-1" />
-                        {t('viewAvailability')}
+                      <div className="mt-5 grid grid-cols-[1fr_auto] gap-2">
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedDoctor(doctor); setIsBookingModalOpen(true); }}
+                          className="inline-flex min-h-11 items-center justify-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700 focus:outline-none focus:ring-4 focus:ring-emerald-500/20"
+                        >{t('bookAppointment')}<ArrowUpRight className="h-4 w-4" /></button>
+                        <button
+                          type="button"
+                          onClick={() => { setSelectedDoctorId(doctor._id || doctor.id); setIsReviewModalOpen(true); }}
+                          className="min-h-11 rounded-xl border border-slate-200 px-3 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
+                        >{t('viewReviews')}</button>
                       </div>
-                    </div>
-                    <button
-                      onClick={() => {
-                        setSelectedDoctor(doctor);
-                        setIsBookingModalOpen(true);
-                      }}
-                      className="mt-4 w-full bg-indigo-600  text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
-                    >
-                      {t('bookAppointment')}
-                    </button>
-                    <button
-                      onClick={() => {
-                        setSelectedDoctorId(doctor._id);
-                        setTimeout(() => setIsReviewModalOpen(true), 0);
-                      }}
-                      className="w-full dark:bg-gray-600 bg-gray-100 dark:text-white text-indigo-600 py-2 rounded-lg hover:bg-gray-200 transition-colors"
-                    >
-                      {t('viewReviews')}
-                    </button>
-                  </div>
-                ))}
+                    </article>
+                  );
+                })}
               </div>
             )}
-          </div>
+          </main>
         </div>
       </div>
 
@@ -234,7 +227,6 @@ export function ClientDashboard() {
           isOpen={isBookingModalOpen}
           onClose={() => setIsBookingModalOpen(false)}
           doctor={selectedDoctor}
-          onBookAppointment={handleBookAppointment}
         />
       )}
       

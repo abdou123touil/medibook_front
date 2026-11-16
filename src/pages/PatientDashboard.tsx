@@ -3,7 +3,7 @@ import { apiFetch } from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/auth";
-import { Calendar, DollarSign, CheckCircle, Clock, Video } from "lucide-react";
+import { Calendar, DollarSign, CheckCircle, Clock, Video, Download, FileSpreadsheet, Plus, Activity } from "lucide-react";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, PieChart, Pie, Cell } from "recharts";
 import { DateRange } from "react-date-range";
 import { addDays, format, formatDistanceToNow, parse, isBefore, isAfter, addMinutes } from "date-fns";
@@ -47,6 +47,7 @@ interface Appointment {
   status: string;
   isTeleconsultation: boolean;
   isFollowUp?: boolean;
+  followUpOfAppointmentId?: string | null;
   teleconsultation?: { jitsiUrl: string; status: string };
   doctorId: { _id?: string; firstName: string; lastName: string; speciality: string };
   cancellationReason?: string | null;
@@ -68,6 +69,7 @@ interface PatientClinicalRecord {
     prescriptions: string[];
     notes: string;
     followUpAt?: string | null;
+    followUpAppointmentId?: string | null;
   }>;
 }
 
@@ -252,7 +254,9 @@ const PatientDashboard = () => {
       date: format(new Date(consultation.consultationDate), 'dd/MM/yyyy'),
       type: 'consultation' as const,
       doctor,
-      followUpAt: consultation.followUpAt || undefined,
+      followUpAt: consultation.followUpAppointmentId || appointments.some((item) =>
+        item.isFollowUp && item.status === 'accepted' && item.followUpOfAppointmentId === String(consultation.appointmentId)
+      ) ? undefined : consultation.followUpAt || undefined,
       description: [
         consultation.symptoms && `Motif : ${consultation.symptoms}`,
         consultation.diagnosis && `Diagnostic : ${consultation.diagnosis}`,
@@ -375,52 +379,60 @@ const PatientDashboard = () => {
 
   return (
     <div
-      className={`container mx-auto px-4 py-8 bg-gradient-to-br from-emerald-50 to-teal-50 dark:from-gray-900 dark:to-teal-900 min-h-screen ${
+      className={`min-h-screen bg-slate-50 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-6 lg:px-8 ${
         i18n.language === "ar" ? "text-right" : "text-left"
       }`}
       dir={i18n.language === "ar" ? "rtl" : "ltr"}
     >
-      <motion.div
-        initial={{ opacity: 0, y: -20 }}
+      <div className="mx-auto max-w-7xl space-y-6 sm:space-y-8">
+      <motion.header
+        initial={{ opacity: 0, y: -12 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="flex justify-between items-center mb-8"
+        transition={{ duration: 0.35 }}
+        className="flex flex-col gap-6 overflow-hidden rounded-3xl bg-gradient-to-br from-emerald-700 via-emerald-700 to-teal-600 p-6 text-white shadow-xl shadow-emerald-900/10 sm:p-8 lg:flex-row lg:items-center lg:justify-between"
       >
-        <h1 className="text-3xl font-semibold text-gray-800 dark:text-gray-100">
-          {t("dashboardTitle")}
-        </h1>
-        <div className="flex space-x-4">
+        <div className="flex items-start gap-4">
+          <div className="hidden rounded-2xl bg-white/15 p-3 ring-1 ring-white/20 sm:block"><Activity className="h-7 w-7" /></div>
+          <div>
+            <p className="mb-2 text-xs font-semibold uppercase tracking-[0.18em] text-emerald-100">{t('statistics')}</p>
+            <h1 className="text-2xl font-bold tracking-tight sm:text-3xl">{t('dashboardTitle')}</h1>
+          </div>
+        </div>
+        <div className="flex flex-wrap gap-2 sm:gap-3">
           <button
             onClick={handleExportCSV}
-            className="px-4 py-2 bg-amber-300 text-gray-800 rounded-lg hover:bg-amber-400 transition-transform transform hover:scale-105"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
           >
+            <FileSpreadsheet className="h-4 w-4" />
             {t("exportCSV")}
           </button>
           <button
             onClick={handleExportPDF}
-            className="px-4 py-2 bg-amber-300 text-gray-800 rounded-lg hover:bg-amber-400 transition-transform transform hover:scale-105"
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
           >
+            <Download className="h-4 w-4" />
             {t("exportPDF")}
           </button>
           <button
-            onClick={() => window.location.href = "/client"}
-            className="px-4 py-2 bg-emerald-500 text-white rounded-lg hover:bg-emerald-600 transition-transform transform hover:scale-105"
+            onClick={() => navigate('/client')}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl bg-white px-4 py-2 text-sm font-bold text-emerald-800 shadow-sm transition hover:bg-emerald-50 focus:outline-none focus:ring-2 focus:ring-white/70"
           >
+            <Plus className="h-4 w-4" />
             {t("bookAppointment")}
           </button>
         </div>
-      </motion.div>
+      </motion.header>
 
       {/* Filtres */}
       <motion.div
         initial={{ opacity: 0, y: 20 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.2 }}
-        className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 mb-8"
+        transition={{ duration: 0.35, delay: 0.08 }}
+        className="rounded-2xl border border-slate-200 bg-white p-4 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-5"
       >
-        <div className="flex flex-col md:flex-row gap-4">
+        <div className="grid gap-4 md:grid-cols-2">
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               {t("period")}
             </label>
             <select
@@ -429,7 +441,7 @@ const PatientDashboard = () => {
                 setTimeRange(e.target.value);
                 setIsCustomDate(e.target.value === "custom");
               }}
-              className="w-full p-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="day">{t("last7Days")}</option>
               <option value="week">{t("lastWeek")}</option>
@@ -440,13 +452,13 @@ const PatientDashboard = () => {
             </select>
           </div>
           <div className="flex-1">
-            <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">
+            <label className="mb-2 block text-xs font-semibold uppercase tracking-wide text-slate-500 dark:text-slate-400">
               {t("status")}
             </label>
             <select
               value={statusFilter}
               onChange={(e) => setStatusFilter(e.target.value)}
-              className="w-full p-2 border border-emerald-300 rounded-lg focus:ring-2 focus:ring-emerald-500 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100"
+              className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm text-slate-800 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-100"
             >
               <option value="all">{t("all")}</option>
               <option value="pending">{t("pending")}</option>
@@ -457,14 +469,15 @@ const PatientDashboard = () => {
           </div>
         </div>
         {isCustomDate && (
-          <div className="mt-4">
+          <div className="mt-4 overflow-hidden rounded-xl border border-slate-200 dark:border-slate-700">
             <DateRange
               editableDateInputs
+              months={1}
               onChange={(item) => setDateRange([item.selection])}
               moveRangeOnFirstSelection={false}
               ranges={dateRange}
               className="w-full"
-              direction={i18n.language === "ar" ? "horizontal" : "horizontal"}
+              direction="horizontal"
             />
           </div>
         )}
@@ -472,48 +485,52 @@ const PatientDashboard = () => {
 
       {/* Métriques */}
       {loading ? (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
           {[...Array(4)].map((_, index) => (
             <div
               key={index}
-              className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 animate-pulse"
+              className="animate-pulse rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900"
             >
-              <div className="h-6 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-4"></div>
-              <div className="h-8 bg-gray-200 dark:bg-gray-700 rounded w-3/4"></div>
+              <div className="mb-4 h-3 w-1/2 rounded bg-slate-200 dark:bg-slate-700"></div>
+              <div className="h-8 w-3/4 rounded bg-slate-200 dark:bg-slate-700"></div>
             </div>
           ))}
         </div>
       ) : error ? (
-        <div className="text-center py-12 text-red-600 dark:text-red-400">
+        <div className="rounded-2xl border border-red-200 bg-red-50 px-5 py-8 text-center text-red-700 dark:border-red-900 dark:bg-red-950/30 dark:text-red-300">
           {error}
         </div>
       ) : stats.length === 0 && totalAppointments === 0 ? (
-        <div className="text-center py-12 text-gray-600 dark:text-gray-400">
-          {t("noAppointments")}
+        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-14 text-center dark:border-slate-700 dark:bg-slate-900">
+          <Calendar className="mx-auto mb-4 h-10 w-10 text-slate-400" />
+          <p className="mx-auto max-w-md text-slate-600 dark:text-slate-300">{t("noAppointments")}</p>
+          <button type="button" onClick={() => navigate('/client')} className="mt-5 inline-flex items-center gap-2 rounded-xl bg-emerald-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-emerald-700">
+            <Plus className="h-4 w-4" />{t('bookAppointment')}
+          </button>
         </div>
       ) : (
         <>
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.4 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+            transition={{ duration: 0.35, delay: 0.12 }}
+            className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4"
           >
             {statCards.map((card, index) => (
               <div
                 key={index}
-                className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6 border border-emerald-100 dark:border-emerald-900"
+                className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition duration-200 hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900"
               >
-                <div className="flex items-center justify-between">
+                <div className="flex items-center justify-between gap-4">
                   <div>
-                    <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
+                    <p className="text-sm font-medium text-slate-500 dark:text-slate-400">
                       {card.title}
                     </p>
-                    <p className="text-2xl font-semibold text-gray-800 dark:text-gray-100 mt-2">
+                    <p className="mt-2 text-2xl font-bold tracking-tight text-slate-900 dark:text-white sm:text-3xl">
                       {card.value}
                     </p>
                   </div>
-                  {card.icon}
+                  <span className="rounded-2xl bg-emerald-50 p-3 ring-1 ring-emerald-100 dark:bg-emerald-950/50 dark:ring-emerald-900">{card.icon}</span>
                 </div>
               </div>
             ))}
@@ -523,63 +540,70 @@ const PatientDashboard = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.5, delay: 0.6 }}
-            className="mt-8 bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6"
+            transition={{ duration: 0.35, delay: 0.18 }}
+            className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6"
           >
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
-              {t("upcomingAppointments")}
-            </h2>
+            <div className="mb-5 flex flex-wrap items-center justify-between gap-3">
+              <div>
+                <h2 className="text-lg font-bold text-slate-900 dark:text-white">{t("upcomingAppointments")}</h2>
+                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('totalAppointments')}: {appointments.filter((apt) => ['pending', 'accepted'].includes(apt.status)).length}</p>
+              </div>
+              <button type="button" onClick={() => setIsHistoryModalOpen(true)} className="rounded-lg px-3 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-50 dark:text-emerald-300 dark:hover:bg-emerald-950/50">{t('viewHistory')} →</button>
+            </div>
             {appointments.filter((apt) => ['pending', 'accepted'].includes(apt.status)).length === 0 ? (
-              <p className="text-gray-600 dark:text-gray-400">{t("noAppointments")}</p>
+              <div className="rounded-xl bg-slate-50 px-4 py-8 text-center dark:bg-slate-800/70">
+                <Calendar className="mx-auto mb-3 h-8 w-8 text-slate-400" />
+                <p className="text-sm text-slate-600 dark:text-slate-300">{t("noAppointments")}</p>
+              </div>
             ) : (
               <div className="space-y-4">
                 {appointments
                   .filter((apt) => ["pending", "accepted"].includes(apt.status))
                   .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
                   .map((appointment) => (
-                    <div
+                    <article
                       key={appointment._id}
-                      className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700"
+                      className="flex flex-col gap-4 rounded-xl border border-slate-200 p-4 transition hover:border-emerald-200 hover:bg-emerald-50/30 sm:flex-row sm:items-center sm:justify-between dark:border-slate-700 dark:hover:border-emerald-900 dark:hover:bg-emerald-950/20"
                     >
-                      <div>
-                        <p className="text-sm font-medium text-gray-600 dark:text-gray-400">
-                          {format(new Date(appointment.date), "dd/MM/yyyy")} à {appointment.time}
-                        </p>
-                        <p className="text-gray-800 dark:text-gray-100">
-                          Dr. {appointment.doctorId.lastName} ({appointment.doctorId.speciality}) - {t(appointment.status)}
-                        </p>
-                        {appointment.isFollowUp && <span className="mt-2 inline-flex rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100">{t('followUpAppointment')}</span>}
+                      <div className="flex min-w-0 items-center gap-4">
+                        <div className="flex h-14 w-14 shrink-0 flex-col items-center justify-center rounded-xl bg-emerald-50 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-200">
+                          <span className="text-lg font-bold leading-none">{format(new Date(appointment.date), 'dd')}</span>
+                          <span className="mt-1 text-[10px] font-semibold uppercase">{format(new Date(appointment.date), 'MMM')}</span>
+                        </div>
+                        <div className="min-w-0">
+                          <p className="truncate font-semibold text-slate-900 dark:text-white">Dr. {appointment.doctorId.lastName} <span className="font-normal text-slate-500">· {appointment.doctorId.speciality}</span></p>
+                          <p className="mt-1 flex items-center gap-1.5 text-sm text-slate-500 dark:text-slate-400"><Clock className="h-4 w-4" />{format(new Date(appointment.date), 'dd/MM/yyyy')} · {appointment.time}</p>
+                          <div className="mt-2 flex flex-wrap gap-2">
+                            <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${appointment.status === 'pending' ? 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-200' : 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-200'}`}>{t(appointment.status)}</span>
+                            {appointment.isFollowUp && <span className="rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-950/60 dark:text-indigo-200">{t('followUpAppointment')}</span>}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                         {appointment.isTeleconsultation && appointment.status === "accepted" && (
-                          <p className="text-sm text-indigo-600 dark:text-indigo-400 mt-1">
+                          <p className="text-sm text-indigo-600 dark:text-indigo-400">
                             {timers[appointment._id] || t("consultationEnded")}
                           </p>
                         )}
-                      </div>
-                      <div className="flex items-center gap-2">
                         {appointment.isTeleconsultation && appointment.status === "accepted" && (
                           <button
                             onClick={() => openTeleconsultation(appointment)}
-                            className="flex items-center gap-2 px-4 py-2 bg-indigo-500 text-white rounded-lg hover:bg-indigo-600 transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed"
+                            className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-indigo-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:bg-slate-400"
                             disabled={!appointment.teleconsultation?.jitsiUrl}
                           >
                             <Video className="w-5 h-5" />
                             {t("joinTeleconsultation")}
                           </button>
                         )}
-                        {!appointment.teleconsultation?.jitsiUrl && appointment.isTeleconsultation && appointment.status === "accepted" && (
-                          <span className="text-sm text-red-600 dark:text-red-400">
-                            {t("noTeleconsultationLink")}
-                          </span>
-                        )}
                         <button
                           type="button"
                           onClick={() => setAppointmentToCancel(appointment)}
-                          className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950"
+                          className="min-h-10 rounded-lg border border-slate-200 px-3 py-2 text-sm font-semibold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700 dark:border-slate-700 dark:text-slate-300 dark:hover:border-red-900 dark:hover:bg-red-950/40 dark:hover:text-red-300"
                         >
-                          Annuler
+                          {t('cancelAppointment')}
                         </button>
                       </div>
-                    </div>
+                    </article>
                   ))}
               </div>
             )}
@@ -589,9 +613,9 @@ const PatientDashboard = () => {
             <motion.div
               initial={{ opacity: 0, y: 12 }}
               animate={{ opacity: 1, y: 0 }}
-              className="mt-6 rounded-xl bg-white p-6 shadow-lg dark:bg-gray-800"
+              className="mt-6 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6"
             >
-              <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">
+              <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
                 {t('appointmentHistory')}
               </h2>
               <div className="space-y-3">
@@ -600,9 +624,9 @@ const PatientDashboard = () => {
                   .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
                   .slice(0, 5)
                   .map((appointment) => (
-                    <div key={appointment._id} className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0 last:pb-0 dark:border-gray-700">
+                    <div key={appointment._id} className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-slate-100 p-4 dark:border-slate-800">
                       <div>
-                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                        <p className="text-sm font-semibold text-slate-800 dark:text-slate-100">
                           Dr. {appointment.doctorId.lastName} · {format(new Date(appointment.date), 'dd/MM/yyyy')} à {appointment.time}
                         </p>
                         {appointment.cancellationReason && (
@@ -622,7 +646,7 @@ const PatientDashboard = () => {
                         <button
                           type="button"
                           onClick={() => navigate('/client', { state: { rebookDoctorId: appointment.doctorId._id } })}
-                          className="rounded-lg bg-indigo-600 px-3 py-2 text-sm font-medium text-white hover:bg-indigo-700"
+                          className="rounded-lg bg-emerald-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-emerald-700"
                         >
                           Reprogrammer
                         </button>
@@ -638,25 +662,25 @@ const PatientDashboard = () => {
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.6 }}
-            className="grid grid-cols-1 lg:grid-cols-2 gap-6 mt-8"
+            className="mt-6 grid grid-cols-1 gap-5 lg:grid-cols-2"
           >
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+              <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
                 {t("appointmentEvolution")}
               </h2>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={stats}>
-                  <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis dataKey="date" />
-                  <YAxis />
-                  <Tooltip />
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" />
+                  <XAxis dataKey="date" tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <YAxis tick={{ fill: '#64748b', fontSize: 12 }} axisLine={false} tickLine={false} />
+                  <Tooltip contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }} />
                   <Legend />
                   <Bar dataKey="appointments" fill="#10b981" name={t("totalAppointments")} />
                 </BarChart>
               </ResponsiveContainer>
             </div>
-            <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
-              <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
+            <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
+              <h2 className="mb-4 text-lg font-bold text-slate-900 dark:text-white">
                 {t("statusDistribution")}
               </h2>
               <ResponsiveContainer width="100%" height={300}>
@@ -677,7 +701,7 @@ const PatientDashboard = () => {
                       />
                     ))}
                   </Pie>
-                  <Tooltip formatter={(value, name) => [value, t(name)]} />
+                  <Tooltip formatter={(value, name) => [value, t(name)]} contentStyle={{ borderRadius: 12, borderColor: '#e2e8f0' }} />
                   <Legend formatter={(value) => t(value)} />
                 </PieChart>
               </ResponsiveContainer>
@@ -686,7 +710,7 @@ const PatientDashboard = () => {
         </>
       )}
 
-      <div className="grid lg:grid-cols-2 gap-6 mt-8 dark:text-gray-100">
+      <div className="mt-6 grid gap-5 dark:text-gray-100 lg:grid-cols-2">
         <MedicalHistory records={medicalHistoryRecords} />
         <Prescriptions prescriptions={prescriptionRecords} />
       </div>
@@ -714,7 +738,7 @@ const PatientDashboard = () => {
             role="dialog"
             aria-modal="true"
             aria-labelledby="cancel-appointment-title"
-            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800"
+            className="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-2xl border border-slate-200 bg-white p-6 shadow-2xl dark:border-slate-700 dark:bg-slate-900"
             initial={{ opacity: 0, scale: 0.95, y: 12 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 12 }}
@@ -738,7 +762,7 @@ const PatientDashboard = () => {
               maxLength={500}
               rows={3}
               placeholder={t('cancellationReasonPlaceholder')}
-              className="mt-1 w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
+              className="mt-1 w-full rounded-xl border border-slate-200 bg-slate-50 p-3 text-sm text-slate-900 outline-none transition focus:border-emerald-500 focus:ring-4 focus:ring-emerald-500/10 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
               required
             />
             <div className="mt-6 flex justify-end gap-3">
@@ -746,7 +770,7 @@ const PatientDashboard = () => {
                 type="button"
                 disabled={isCancellingAppointment}
                 onClick={() => { setAppointmentToCancel(null); setCancellationReason(''); }}
-                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+                className="rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-800"
               >
                 {t('keepAppointment')}
               </button>
@@ -754,7 +778,7 @@ const PatientDashboard = () => {
                 type="button"
                 disabled={isCancellingAppointment || cancellationReason.trim().length < 5}
                 onClick={cancelAppointment}
-                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
+                className="rounded-xl bg-red-600 px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
                 {isCancellingAppointment ? 'Annulation…' : 'Confirmer l’annulation'}
               </button>
@@ -777,6 +801,7 @@ const PatientDashboard = () => {
           }}
         />
       )}
+      </div>
     </div>
   );
 };
