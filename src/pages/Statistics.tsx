@@ -91,25 +91,7 @@ export function Statistics() {
     key: 'selection',
   });
 
-  console.log('Statistics hooks initialized, user:', user);
-
-  const doctorId = user?.data?.id;
-
-  useEffect(() => {
-    console.log('Statistics useEffect triggered, doctorId:', doctorId, 'timeRange:', timeRange);
-    if (!doctorId) {
-      setError('Utilisateur non authentifié');
-      setIsLoading(false);
-      return;
-    }
-
-    loadStats();
-    loadHistoricAppointments();
-
-    return () => {
-      setIsLoading(false);
-    };
-  }, [doctorId, timeRange, statusFilter, dateRange]);
+  //console.log('Statistics hooks initialized, user:', user);
 
   const loadStats = async () => {
     try {
@@ -137,14 +119,14 @@ export function Statistics() {
       }
 
       const data = await response.json();
-      console.log('Fetched stats:', data);
+      //console.log('Fetched stats:', data);
 
       if (!Array.isArray(data.stats)) {
         throw new Error('Les statistiques reçues ne sont pas dans un format valide');
       }
 
       const formattedStats = data.stats.map((stat: DailyStats) => {
-        console.log('Processing stat:', stat);
+        //console.log('Processing stat:', stat);
         return {
           ...stat,
           date: format(
@@ -154,7 +136,7 @@ export function Statistics() {
           ),
         };
       });
-      console.log('Formatted stats:', formattedStats);
+      //console.log('Formatted stats:', formattedStats);
       setStats(formattedStats);
       setIncompleteDetailsCount(data.incompleteDetailsCount || 0);
       setNoShowRate(data.noShowRate || 0);
@@ -162,13 +144,32 @@ export function Statistics() {
       setPeakHours(data.peakHours || []);
       setStatusDistribution(data.statusDistribution || []);
     } catch (error) {
-      console.error('Error loading statistics:', error);
+      //console.error('Error loading statistics:', error);
       setError('Erreur lors du chargement des statistiques');
     } finally {
       setIsLoading(false);
     }
   };
 
+  const doctorId = user?.data?.id;
+  //console.log('Statistics component, doctorId:', doctorId, 'timeRange:', timeRange, 'statusFilter:', statusFilter, 'dateRange:', dateRange);
+  
+console.log('Statistics component, doctorId:', doctorId);
+useEffect(() => {
+    //console.log('Statistics useEffect triggered, doctorId:', doctorId, 'timeRange:', timeRange);
+    if (!doctorId) {
+      setError('Utilisateur non authentifié');
+      setIsLoading(false);
+      return;
+    }
+
+    loadStats();
+    loadHistoricAppointments();
+
+    return () => {
+      setIsLoading(false);
+    };
+  }, [doctorId, timeRange, statusFilter, dateRange]);
   const loadHistoricAppointments = async () => {
     try {
       const token = localStorage.getItem('token');
@@ -193,7 +194,7 @@ export function Statistics() {
       }
 
       const data = await response.json();
-      console.log('Fetched historic appointments:', data);
+      //console.log('Fetched historic appointments:', data);
 
       if (!Array.isArray(data.appointments)) {
         throw new Error(
@@ -205,10 +206,10 @@ export function Statistics() {
         (apt: Appointment) =>
           apt.status === 'completed' || apt.status === 'cancelled'
       );
-      console.log('Filtered historic appointments:', historicFiltered);
+      //console.log('Filtered historic appointments:', historicFiltered);
       setHistoricAppointments(historicFiltered);
     } catch (error) {
-      console.error('Error loading historic appointments:', error);
+      //console.error('Error loading historic appointments:', error);
       setError('Erreur lors du chargement des rendez-vous historiques');
     }
   };
@@ -218,7 +219,7 @@ export function Statistics() {
       (sum, stat) => sum + (type === 'revenue' ? stat.revenue : stat.patients),
       0
     );
-    console.log(`Calculated ${type} total:`, total);
+    //console.log(`Calculated ${type} total:`, total);
     if (type === 'revenue') {
       return `${total.toLocaleString('fr-FR')} DT`;
     }
@@ -277,7 +278,8 @@ export function Statistics() {
     doc.text('Rapport Statistique', 20, 20);
     doc.setFontSize(12);
     doc.text(`Période: ${timeRange === 'custom' ? `${format(dateRange.startDate, 'dd MMM yyyy', { locale: fr })} - ${format(dateRange.endDate, 'dd MMM yyyy', { locale: fr })}` : timeRange}`, 20, 30);
-    doc.text(`Revenus totaux: ${getStatValue('revenue')}`, 20, 40);
+    doc.text(`Revenus totaux: ${data.totalExpenses}`, 20, 40);
+    /*doc.text(`Revenus totaux: ${getStatValue('revenue')}`, 20, 40);*/
     doc.text(`Patients traités: ${getStatValue('patients')}`, 20, 50);
     doc.text(`Taux de no-shows: ${noShowRate.toFixed(2)}%`, 20, 60);
     doc.text(`Patients récurrents: ${recurrentPatients}`, 20, 70);

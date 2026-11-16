@@ -170,8 +170,9 @@ export function DoctorDashboard() {
   ) => {
     try {
       const token = localStorage.getItem('token');
+      const action = status === 'accepted' ? 'accept' : 'cancel';
       const response = await fetch(
-        `http://localhost:3000/api/appointments/${appointmentId}/${status}`,
+        `http://localhost:3000/api/appointments/${appointmentId}/${action}`,
         {
           method: 'PUT',
           headers: {
@@ -181,16 +182,28 @@ export function DoctorDashboard() {
         }
       );
 
-      if (!response.ok) {
-        const errorData = await response.json();
-        throw new Error(errorData.error || t('errorUpdateAppointment'));
+      const responseBody = await response.text();
+      let data: { error?: string; appointment?: ExtendedAppointment } | null = null;
+      try {
+        data = responseBody ? JSON.parse(responseBody) : null;
+      } catch {
+        if (response.ok) {
+          throw new Error(t('errorUpdateAppointment'));
+        }
       }
 
-      const updatedAppointment = await response.json();
+      if (!response.ok) {
+        throw new Error(data?.error || `${response.status} ${response.statusText}`);
+      }
+
+      if (!data?.appointment) {
+        throw new Error(t('errorUpdateAppointment'));
+      }
+      const updatedAppointment = data.appointment;
 
       setAppointments((prevAppointments) =>
         prevAppointments.map((apt) =>
-          apt._id === appointmentId ? updatedAppointment.appointment : apt
+          apt._id === appointmentId ? updatedAppointment : apt
         )
       );
 
@@ -225,15 +238,14 @@ export function DoctorDashboard() {
       }
 
       const newValue = !requiresConfirmation;
+      const formData = new FormData();
+      formData.append('requiresConfirmation', String(newValue));
       const response = await fetch('http://localhost:3000/api/users/profile', {
         method: 'PUT',
         headers: {
-          'Content-Type': 'application/json',
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({
-          requiresConfirmation: newValue,
-        }),
+        body: formData,
       });
 
       const data = await response.json();
@@ -367,7 +379,7 @@ export function DoctorDashboard() {
 
   // Function to check if the complete button should be enabled
   const isCompleteButtonEnabled = (appointment: ExtendedAppointment) => {
-    return appointment.status === "accepted" || appointment.status === "completed";
+    return appointment.status === "accepted";
   };
 
   useEffect(() => {
@@ -527,7 +539,7 @@ export function DoctorDashboard() {
                               )}
                             </>
                           )}
-                          {(appointment.status === "accepted" || appointment.status === "completed") && (
+                          {appointment.status === "accepted" && (
                             <button
                               onClick={() => completeAppointment(appointment._id)}
                               className="flex items-center gap-2 px-4 py-2 bg-red-500 text-white rounded-lg hover:bg-red-600 transition-transform transform hover:scale-105 disabled:bg-gray-400 disabled:cursor-not-allowed"
