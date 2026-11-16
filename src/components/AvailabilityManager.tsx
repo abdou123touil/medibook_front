@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { fr } from 'date-fns/locale';
-import { Calendar as CalendarIcon, Plus, X, Ban } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, X, Ban, Repeat } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/auth';
 import { Appointment } from '../types';
@@ -18,7 +18,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
   const { user } = useAuthStore();
 
   const startDate = startOfWeek(new Date(), { locale: fr });
-  const weekDays = [...Array(14)].map((_, i) => addDays(startDate, i));
+  const weekDays = [...Array(35)].map((_, i) => addDays(startDate, i));
 
   const timeSlots = [
     "08:00", "09:00", "10:00", "11:00", "12:00",
@@ -164,6 +164,54 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     }
   };
 
+  const repeatWeeklySchedule = async () => {
+    const dateKey = format(selectedDate, 'yyyy-MM-dd');
+    const template = availability[dateKey] || [];
+    if (template.length === 0) {
+      toast.error('Ajoutez d’abord des créneaux à cette journée.');
+      return;
+    }
+
+    const updatedAvailability = { ...availability };
+    let copiedDays = 0;
+    for (let week = 1; week <= 4; week += 1) {
+      const targetKey = format(addDays(selectedDate, week * 7), 'yyyy-MM-dd');
+      const hasBooking = appointments.some((appointment) =>
+        format(new Date(appointment.date), 'yyyy-MM-dd') === targetKey &&
+        ['pending', 'accepted'].includes(appointment.status)
+      );
+      if (hasBooking) continue;
+      updatedAvailability[targetKey] = [...template];
+      copiedDays += 1;
+    }
+
+    if (copiedDays === 0) {
+      toast.error('Aucun jour libre à mettre à jour dans les quatre prochaines semaines.');
+      return;
+    }
+
+    const previousAvailability = availability;
+    setAvailability(updatedAvailability);
+    onUpdateAvailability(updatedAvailability);
+    try {
+      const response = await fetch('http://localhost:3000/api/users/update-availability', {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${localStorage.getItem('token')}`,
+        },
+        body: JSON.stringify({ availability: updatedAvailability }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Impossible de répéter les disponibilités.');
+      toast.success(`Disponibilités répétées sur ${copiedDays} semaines.`);
+    } catch (error) {
+      setAvailability(previousAvailability);
+      onUpdateAvailability(previousAvailability);
+      toast.error((error as Error).message);
+    }
+  };
+
   // Determine if a time slot should be disabled (past or booked)
   const isTimeSlotDisabled = (time: string) => {
     if (isSameDay(selectedDate, new Date())) {
@@ -177,7 +225,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     return appointments.some(appointment => 
       format(new Date(appointment.date), 'yyyy-MM-dd') === dateKey &&
       appointment.time === time &&
-      appointment.status === 'pending'
+      ['pending', 'accepted'].includes(appointment.status)
     );
   };
 
@@ -187,7 +235,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     const appointment = appointments.find(appointment =>
       format(new Date(appointment.date), 'yyyy-MM-dd') === dateKey &&
       appointment.time === time &&
-      appointment.status === 'pending'
+      ['pending', 'accepted'].includes(appointment.status)
     );
     return appointment 
       ? `${appointment.patientId?.firstName || 'Nom'} ${appointment.patientId?.lastName || 'inconnu'}`
@@ -226,13 +274,22 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
         <h3 className="text-lg font-medium">
           Créneaux pour le {format(selectedDate, 'EEEE d MMMM', { locale: fr })}
         </h3>
-        <button
-          onClick={blockDay}
-          className="flex items-center gap-2 px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700"
-        >
-          <Ban className="w-4 h-4" />
-          Bloquer ce jour
-        </button>
+        <div className="flex gap-2">
+          <button
+            onClick={repeatWeeklySchedule}
+            className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
+          >
+            <Repeat className="w-4 h-4" />
+            Répéter 4 semaines
+          </button>
+          <button
+            onClick={blockDay}
+            className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
+          >
+            <Ban className="w-4 h-4" />
+            Bloquer ce jour
+          </button>
+        </div>
       </div>
 
       <div className="grid grid-cols-4 gap-2">
@@ -240,7 +297,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
           const isBooked = appointments.some(appointment =>
             format(new Date(appointment.date), 'yyyy-MM-dd') === selectedDateKey &&
             appointment.time === time &&
-            appointment.status === 'pending'
+            ['pending', 'accepted'].includes(appointment.status)
           );
           const patientName = getPatientName(time);
 

@@ -83,12 +83,15 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
   const [isTeleconsultation, setIsTeleconsultation] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [liveAvailability, setLiveAvailability] = useState<Record<string, string[]>>({});
+  const [waitlistJoined, setWaitlistJoined] = useState(false);
+  const [joiningWaitlist, setJoiningWaitlist] = useState(false);
 
   const resetForm = () => {
     setSelectedDate(new Date());
     setSelectedTime(null);
     setSelectedSymptoms([]);
     setIsTeleconsultation(false);
+    setWaitlistJoined(false);
   };
 
   const handleClose = () => {
@@ -216,6 +219,31 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
     }
   };
 
+  const handleJoinWaitlist = async () => {
+    if (joiningWaitlist || waitlistJoined) return;
+    const token = localStorage.getItem('token');
+    if (!token) {
+      toast.error('Connectez-vous pour rejoindre la liste d’attente.');
+      return;
+    }
+    setJoiningWaitlist(true);
+    try {
+      const response = await fetch('http://localhost:3000/api/waitlist', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ doctorId: doctor._id, date: format(selectedDate, 'yyyy-MM-dd'), symptoms: selectedSymptoms.join(', ') }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Impossible de rejoindre la liste d’attente.');
+      setWaitlistJoined(true);
+      toast.success(data.message || 'Vous êtes inscrit sur la liste d’attente.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Impossible de rejoindre la liste d’attente.');
+    } finally {
+      setJoiningWaitlist(false);
+    }
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     await handleBookAppointment();
@@ -231,6 +259,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
     }
   }
   const availableSlots = cleanedAvailability[formattedDate] || [];
+  const hasScheduledSlots = Object.prototype.hasOwnProperty.call(cleanedAvailability, formattedDate);
   const symptoms = symptomsBySpeciality[doctor.speciality] || [];
 
   const isSlotBooked = (time: string) => {
@@ -254,6 +283,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
 
     return isBooked;
   };
+  const hasFreeSlot = availableSlots.some((time) => !isSlotBooked(time));
 
   return (
     <motion.div
@@ -332,6 +362,20 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
               <span>{t('videoConsultation')}</span>
             </label>
           </div>
+
+          {hasScheduledSlots && !hasFreeSlot && (
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-indigo-50 p-4 text-sm text-indigo-900 dark:bg-indigo-950 dark:text-indigo-100">
+              <span>Aucun créneau libre à cette date ? Inscrivez-vous pour être prévenu si une place se libère.</span>
+              <button
+                type="button"
+                onClick={handleJoinWaitlist}
+                disabled={joiningWaitlist || waitlistJoined}
+                className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+              >
+                {joiningWaitlist ? 'Inscription…' : waitlistJoined ? 'Inscrit' : 'Liste d’attente'}
+              </button>
+            </div>
+          )}
 
           <div className="flex justify-end">
             <button

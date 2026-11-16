@@ -11,6 +11,8 @@ import jsPDF from "jspdf";
 import { motion } from "framer-motion";
 import { AppointmentHistoryModal } from "../components/AppointmentHistoryModal";
 import { TeleconsultationModal } from "../components/TeleconsultationModal";
+import { MedicalHistory } from "../components/MedicalHistory";
+import { Prescriptions } from "../components/Prescriptions";
 import toast from "react-hot-toast";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
@@ -46,6 +48,23 @@ interface Appointment {
   doctorId: { firstName: string; lastName: string; speciality: string };
 }
 
+interface PatientClinicalRecord {
+  doctorId: { _id?: string; firstName: string; lastName: string; speciality?: string } | null;
+  allergies?: string;
+  medicalHistory?: string;
+  currentMedications?: string;
+  updatedAt?: string;
+  consultations: Array<{
+    appointmentId: string;
+    consultationDate: string;
+    symptoms: string;
+    diagnosis: string;
+    treatment: string;
+    prescriptions: string[];
+    notes: string;
+  }>;
+}
+
 const STATUS_COLORS: { [key: string]: string } = {
   cancelled: "#ef4444",
   completed: "#10b981",
@@ -76,14 +95,37 @@ const PatientDashboard = () => {
   const [error, setError] = useState<string | null>(null);
   const [isHistoryModalOpen, setIsHistoryModalOpen] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [patientRecords, setPatientRecords] = useState<PatientClinicalRecord[]>([]);
   const [isTeleconsultationModalOpen, setIsTeleconsultationModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
+  const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
+  const [isCancellingAppointment, setIsCancellingAppointment] = useState(false);
   const users = localStorage.getItem("user");
   const parsedUser = users ? JSON.parse(users) : null;
   const userId = parsedUser?.data?.id || null;
 
   // State for timers
   const [timers, setTimers] = useState<{ [key: string]: string | null }>({});
+
+  const cancelAppointment = async () => {
+    if (!appointmentToCancel || isCancellingAppointment) return;
+    setIsCancellingAppointment(true);
+    try {
+      const response = await fetch(`http://localhost:3000/api/appointments/${appointmentToCancel._id}/cancel`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Impossible d’annuler le rendez-vous.');
+      setAppointments((items) => items.map((item) => item._id === appointmentToCancel._id ? { ...item, status: 'cancelled' } : item));
+      setAppointmentToCancel(null);
+      toast.success('Rendez-vous annulé. Le créneau peut être proposé à un patient en liste d’attente.');
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : 'Impossible d’annuler le rendez-vous.');
+    } finally {
+      setIsCancellingAppointment(false);
+    }
+  };
 
   useEffect(() => {
     const fetchStats = async () => {
@@ -120,7 +162,11 @@ const PatientDashboard = () => {
 
         const data: StatsResponse = await response.json();
         setStats(data.stats || []);
-        setTotalAppointments(data.totalAppointments || 0);
+        const rawTotalAppointments = (data as unknown as { totalAppointments: number | Array<{ count?: number }> }).totalAppointments;
+        const totalAppointmentCount = typeof rawTotalAppointments === 'number'
+          ? rawTotalAppointments
+          : Number(rawTotalAppointments?.[0]?.count || 0);
+        setTotalAppointments(Number.isFinite(totalAppointmentCount) ? totalAppointmentCount : 0);
         setTotalExpenses(data.totalExpenses || 0);
         setUpcomingAppointments(data.upcomingAppointments || 0);
         setCompletionRate(data.completionRate || 0);
@@ -156,11 +202,65 @@ const PatientDashboard = () => {
       }
     };
 
+    const fetchPatientRecords = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/patients/me/records', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        if (!response.ok) throw new Error('Impossible de charger votre historique médical.');
+        const data = await response.json();
+        setPatientRecords(data.records || []);
+      } catch (err) {
+        console.error('Erreur lors du chargement du dossier médical:', err);
+      }
+    };
+
     if (userId) {
       fetchStats();
       fetchAppointments();
+      fetchPatientRecords();
     }
   }, [userId, timeRange, statusFilter, dateRange, isCustomDate, t]);
+
+  const medicalHistoryRecords = patientRecords.flatMap((record) => {
+    const doctor = `Dr. ${record.doctorId?.firstName || ''} ${record.doctorId?.lastName || ''}`.trim();
+    const profileEntry = (record.allergies || record.medicalHistory || record.currentMedications) ? [{
+      id: `record-${record.doctorId?._id || doctor}`,
+      date: record.updatedAt ? format(new Date(record.updatedAt), 'dd/MM/yyyy') : '',
+      type: 'consultation' as const,
+      doctor,
+      description: [
+        record.allergies && `Allergies : ${record.allergies}`,
+        record.medicalHistory && `Antécédents : ${record.medicalHistory}`,
+        record.currentMedications && `Traitements actuels : ${record.currentMedications}`,
+      ].filter(Boolean).join('\n'),
+    }] : [];
+    const visits = (record.consultations || []).map((consultation) => ({
+      id: String(consultation.appointmentId),
+      date: format(new Date(consultation.consultationDate), 'dd/MM/yyyy'),
+      type: 'consultation' as const,
+      doctor,
+      description: [
+        consultation.symptoms && `Motif : ${consultation.symptoms}`,
+        consultation.diagnosis && `Diagnostic : ${consultation.diagnosis}`,
+        consultation.treatment && `Recommandations : ${consultation.treatment}`,
+        consultation.notes,
+      ].filter(Boolean).join('\n'),
+    }));
+    return [...profileEntry, ...visits];
+  });
+
+  const prescriptionRecords = patientRecords.flatMap((record) =>
+    (record.consultations || [])
+      .filter((consultation) => consultation.prescriptions?.length)
+      .map((consultation) => ({
+        id: String(consultation.appointmentId),
+        date: format(new Date(consultation.consultationDate), 'dd/MM/yyyy'),
+        doctor: `${record.doctorId?.firstName || ''} ${record.doctorId?.lastName || ''}`.trim(),
+        medications: consultation.prescriptions.map((name) => ({ name, dosage: '', frequency: '', duration: '' })),
+        notes: consultation.treatment || consultation.notes,
+      }))
+  );
 
   // Update timers for teleconsultation appointments
   useEffect(() => {
@@ -259,10 +359,6 @@ const PatientDashboard = () => {
       icon: <CheckCircle className="w-6 h-6 text-emerald-500" />,
     },
   ];
-
-  const hasTeleconsultation = appointments.some(
-    (apt) => apt.isTeleconsultation && apt.status === "accepted"
-  );
 
   return (
     <div
@@ -420,10 +516,8 @@ const PatientDashboard = () => {
             <h2 className="text-lg font-semibold text-gray-800 dark:text-gray-100 mb-4">
               {t("upcomingAppointments")}
             </h2>
-            {appointments.length === 0 ? (
+            {appointments.filter((apt) => ['pending', 'accepted'].includes(apt.status)).length === 0 ? (
               <p className="text-gray-600 dark:text-gray-400">{t("noAppointments")}</p>
-            ) : !hasTeleconsultation ? (
-              <p className="text-gray-600 dark:text-gray-400">{t("noVideoAppointments")}</p>
             ) : (
               <div className="space-y-4">
                 {appointments
@@ -463,12 +557,55 @@ const PatientDashboard = () => {
                             {t("noTeleconsultationLink")}
                           </span>
                         )}
+                        <button
+                          type="button"
+                          onClick={() => setAppointmentToCancel(appointment)}
+                          className="rounded-lg border border-red-300 px-3 py-2 text-sm font-medium text-red-700 hover:bg-red-50 dark:border-red-700 dark:text-red-300 dark:hover:bg-red-950"
+                        >
+                          Annuler
+                        </button>
                       </div>
                     </div>
                   ))}
               </div>
             )}
           </motion.div>
+
+          {appointments.some((apt) => ['completed', 'cancelled'].includes(apt.status)) && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="mt-6 rounded-xl bg-white p-6 shadow-lg dark:bg-gray-800"
+            >
+              <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-gray-100">
+                {t('appointmentHistory')}
+              </h2>
+              <div className="space-y-3">
+                {appointments
+                  .filter((apt) => ['completed', 'cancelled'].includes(apt.status))
+                  .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+                  .slice(0, 5)
+                  .map((appointment) => (
+                    <div key={appointment._id} className="flex flex-wrap items-center justify-between gap-3 border-b border-gray-100 pb-3 last:border-0 last:pb-0 dark:border-gray-700">
+                      <div>
+                        <p className="text-sm font-medium text-gray-800 dark:text-gray-100">
+                          Dr. {appointment.doctorId.lastName} · {format(new Date(appointment.date), 'dd/MM/yyyy')} à {appointment.time}
+                        </p>
+                      </div>
+                      <span
+                        className="rounded-full px-3 py-1 text-sm font-medium"
+                        style={{
+                          color: STATUS_COLORS[appointment.status],
+                          backgroundColor: `${STATUS_COLORS[appointment.status]}1A`,
+                        }}
+                      >
+                        {t(appointment.status)}
+                      </span>
+                    </div>
+                  ))}
+              </div>
+            </motion.div>
+          )}
 
           {/* Graphiques */}
           <motion.div
@@ -523,11 +660,66 @@ const PatientDashboard = () => {
         </>
       )}
 
+      <div className="grid lg:grid-cols-2 gap-6 mt-8 dark:text-gray-100">
+        <MedicalHistory records={medicalHistoryRecords} />
+        <Prescriptions prescriptions={prescriptionRecords} />
+      </div>
+
       <AppointmentHistoryModal
         isOpen={isHistoryModalOpen}
         onClose={() => setIsHistoryModalOpen(false)}
         appointments={appointments}
       />
+      {appointmentToCancel && (
+        <motion.div
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4"
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          exit={{ opacity: 0 }}
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget && !isCancellingAppointment) setAppointmentToCancel(null);
+          }}
+          role="presentation"
+        >
+          <motion.div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="cancel-appointment-title"
+            className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800"
+            initial={{ opacity: 0, scale: 0.95, y: 12 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 12 }}
+          >
+            <h2 id="cancel-appointment-title" className="text-xl font-semibold text-gray-900 dark:text-white">
+              Annuler ce rendez-vous ?
+            </h2>
+            <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+              Rendez-vous avec Dr. {appointmentToCancel.doctorId.lastName}, le {format(new Date(appointmentToCancel.date), 'dd/MM/yyyy')} à {appointmentToCancel.time}.
+            </p>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              Cette action est définitive. Le créneau pourra être proposé à un autre patient.
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button
+                type="button"
+                disabled={isCancellingAppointment}
+                onClick={() => setAppointmentToCancel(null)}
+                className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
+              >
+                Garder le rendez-vous
+              </button>
+              <button
+                type="button"
+                disabled={isCancellingAppointment}
+                onClick={cancelAppointment}
+                className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-60"
+              >
+                {isCancellingAppointment ? 'Annulation…' : 'Confirmer l’annulation'}
+              </button>
+            </div>
+          </motion.div>
+        </motion.div>
+      )}
       {selectedAppointment && (
         <TeleconsultationModal
           isOpen={isTeleconsultationModalOpen}

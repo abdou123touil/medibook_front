@@ -9,11 +9,15 @@ import {
   Calendar,
   Settings,
   Video,
+  FileText,
+  Search,
 } from 'lucide-react';
 import { Appointment } from '../types';
 import { AvailabilityManager } from '../components/AvailabilityManager';
 import { AppointmentHistoryModal } from '../components/AppointmentHistoryModal';
 import { TeleconsultationModal } from '../components/TeleconsultationModal';
+import { PatientRecordModal } from '../components/PatientRecordModal';
+import { PatientSearchModal } from '../components/PatientSearchModal';
 import { useAuthStore } from '../store/auth';
 import { useLocation } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
@@ -29,12 +33,15 @@ export function DoctorDashboard() {
   const location = useLocation();
   const { user } = useAuthStore();
   const [appointments, setAppointments] = useState<ExtendedAppointment[]>([]);
+  const [allAppointments, setAllAppointments] = useState<ExtendedAppointment[]>([]);
   const [historicAppointments, setHistoricAppointments] = useState<ExtendedAppointment[]>([]);
   const [availability, setAvailability] = useState<{ [date: string]: string[] }>({});
   const [availableSlotsIn14Days, setAvailableSlotsIn14Days] = useState(0);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTeleconsultationModalOpen, setIsTeleconsultationModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<ExtendedAppointment | null>(null);
+  const [patientRecordAppointment, setPatientRecordAppointment] = useState<ExtendedAppointment | null>(null);
+  const [isPatientSearchOpen, setIsPatientSearchOpen] = useState(false);
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
   const today = new Date();
   const futureDate = addDays(today, 14);
@@ -92,12 +99,14 @@ export function DoctorDashboard() {
         (apt: ExtendedAppointment) => apt.status === 'completed' || apt.status === 'cancelled'
       );
 
+      setAllAppointments(data.appointments);
       setAppointments(upcomingAppointments);
       setHistoricAppointments(historicFiltered);
     } catch (error) {
       console.error('Error:', error);
       toast.error(t('errorLoadAppointments'));
       setAppointments([]);
+      setAllAppointments([]);
       setHistoricAppointments([]);
     }
   };
@@ -201,6 +210,10 @@ export function DoctorDashboard() {
       }
       const updatedAppointment = data.appointment;
 
+      setAllAppointments((prevAppointments) => prevAppointments.map((apt) =>
+        apt._id === appointmentId ? updatedAppointment : apt
+      ));
+
       setAppointments((prevAppointments) =>
         prevAppointments.map((apt) =>
           apt._id === appointmentId ? updatedAppointment : apt
@@ -281,6 +294,9 @@ export function DoctorDashboard() {
       }
 
       const updatedAppointment = await response.json();
+      setAllAppointments((prevAppointments) => prevAppointments.map((apt) =>
+        apt._id === appointmentId ? updatedAppointment.appointment : apt
+      ));
       setAppointments((prevAppointments) =>
         prevAppointments.map((apt) =>
           apt._id === appointmentId ? updatedAppointment.appointment : apt
@@ -394,9 +410,18 @@ export function DoctorDashboard() {
     <div className="container mx-auto px-4 py-8">
       <div className="space-y-8">
         <div className="dark:text-indigo-400 dark:bg-gray-900 border bg-white rounded-xl shadow-lg p-6">
-          <h1 className="text-3xl font-bold dark:text-indigo-400 text-gray-900 mb-8">
-            {t('doctorDashboard')}
-          </h1>
+          <div className="flex flex-wrap justify-between items-center gap-4 mb-8">
+            <h1 className="text-3xl font-bold dark:text-indigo-400 text-gray-900">
+              {t('doctorDashboard')}
+            </h1>
+            <button
+              onClick={() => setIsPatientSearchOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+            >
+              <Search className="w-4 h-4" />
+              Rechercher une fiche patient
+            </button>
+          </div>
 
           <div className="grid lg:grid-cols-3 gap-6">
             <div className="bg-indigo-50 dark:bg-gray-900 border rounded-lg p-6">
@@ -506,6 +531,16 @@ export function DoctorDashboard() {
                           )}
                         </div>
                         <div className="flex gap-2 items-center">
+                          {['accepted', 'completed'].includes(appointment.status) && (appointment.patientId as any)?._id && (
+                            <button
+                              onClick={() => setPatientRecordAppointment(appointment)}
+                              className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
+                              title="Ouvrir la fiche patient"
+                            >
+                              <FileText className="w-4 h-4" />
+                              Fiche patient
+                            </button>
+                          )}
                           {appointment.status === 'pending' && (
                             <button
                               onClick={() => updateAppointmentStatus(appointment._id, 'accepted')}
@@ -570,7 +605,7 @@ export function DoctorDashboard() {
           <div>
             <AvailabilityManager
               onUpdateAvailability={setAvailability}
-              appointments={appointments}
+              appointments={allAppointments}
             />
           </div>
         </div>
@@ -596,6 +631,24 @@ export function DoctorDashboard() {
           }}
         />
       )}
+      {patientRecordAppointment && (
+        <PatientRecordModal
+          isOpen={Boolean(patientRecordAppointment)}
+          onClose={() => setPatientRecordAppointment(null)}
+          patientId={(patientRecordAppointment.patientId as any)._id}
+          patientName={`${(patientRecordAppointment.patientId as any).firstName || ''} ${(patientRecordAppointment.patientId as any).lastName || ''}`.trim() || 'Patient'}
+          appointment={patientRecordAppointment}
+        />
+      )}
+      <PatientSearchModal
+        isOpen={isPatientSearchOpen}
+        onClose={() => setIsPatientSearchOpen(false)}
+        appointments={allAppointments as any}
+        onSelectPatient={(patient) => {
+          setIsPatientSearchOpen(false);
+          setPatientRecordAppointment(patient.appointment as ExtendedAppointment);
+        }}
+      />
     </div>
   );
 }

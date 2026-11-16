@@ -1,5 +1,6 @@
 import React from 'react';
-import { FileText, Download, Pills, Calendar } from 'lucide-react';
+import { FileText, Download, Pill, Calendar } from 'lucide-react';
+import jsPDF from 'jspdf';
 
 interface Prescription {
   id: string;
@@ -19,10 +20,30 @@ interface PrescriptionsProps {
 }
 
 export function Prescriptions({ prescriptions }: PrescriptionsProps) {
+  const downloadPrescription = (prescription: Prescription) => {
+    const document = new jsPDF();
+    document.setFontSize(18);
+    document.text('Ordonnance médicale', 18, 20);
+    document.setFontSize(11);
+    document.text(`Médecin : Dr. ${prescription.doctor}`, 18, 32);
+    document.text(`Date : ${prescription.date}`, 18, 40);
+    let y = 54;
+    prescription.medications.forEach((medication, index) => {
+      const details = [medication.dosage, medication.frequency, medication.duration].filter(Boolean).join(' — ');
+      document.text(`${index + 1}. ${medication.name}${details ? ` : ${details}` : ''}`, 18, y, { maxWidth: 175 });
+      y += 10;
+    });
+    if (prescription.notes) {
+      document.text('Recommandations :', 18, y + 4);
+      document.text(document.splitTextToSize(prescription.notes, 175), 18, y + 12);
+    }
+    document.save(`ordonnance-${prescription.date.replaceAll('/', '-')}.pdf`);
+  };
+
   return (
-    <div className="bg-white rounded-xl shadow-lg p-6">
+    <div className="bg-white rounded-xl shadow-lg p-6 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
       <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-        <Pills className="w-6 h-6 text-indigo-600" />
+        <Pill className="w-6 h-6 text-indigo-600" />
         Ordonnances
       </h2>
 
@@ -40,7 +61,7 @@ export function Prescriptions({ prescriptions }: PrescriptionsProps) {
                   {prescription.date}
                 </div>
               </div>
-              <button className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full">
+              <button type="button" onClick={() => downloadPrescription(prescription)} className="p-2 text-indigo-600 hover:bg-indigo-50 rounded-full" aria-label="Télécharger l’ordonnance">
                 <Download className="w-5 h-5" />
               </button>
             </div>
@@ -48,13 +69,13 @@ export function Prescriptions({ prescriptions }: PrescriptionsProps) {
             <div className="space-y-3">
               {prescription.medications.map((med, index) => (
                 <div key={index} className="flex items-start gap-3 p-2 bg-gray-50 rounded-lg">
-                  <Pills className="w-5 h-5 text-indigo-600 mt-1" />
+                  <Pill className="w-5 h-5 text-indigo-600 mt-1" />
                   <div>
                     <h4 className="font-medium">{med.name}</h4>
-                    <p className="text-sm text-gray-600">
-                      {med.dosage} - {med.frequency}
-                    </p>
-                    <p className="text-sm text-gray-500">Durée: {med.duration}</p>
+                    {(med.dosage || med.frequency) && (
+                      <p className="text-sm text-gray-600">{[med.dosage, med.frequency].filter(Boolean).join(' - ')}</p>
+                    )}
+                    {med.duration && <p className="text-sm text-gray-500">Durée: {med.duration}</p>}
                   </div>
                 </div>
               ))}
@@ -71,6 +92,7 @@ export function Prescriptions({ prescriptions }: PrescriptionsProps) {
             )}
           </div>
         ))}
+        {prescriptions.length === 0 && <p className="text-sm text-gray-500">Aucune ordonnance enregistrée.</p>}
       </div>
     </div>
   );

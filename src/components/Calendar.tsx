@@ -45,7 +45,7 @@ export function Calendar({
               'p-2 rounded-lg text-sm font-medium transition-colors',
               isSameDay(date, selectedDate)
                 ? 'bg-indigo-600 text-white'
-                : 'hover:bg-indigo-50'
+                : 'hover:bg-blue-50 dark:hover:bg-gray-600 dark:hover:text-white'
             )}
           >
             <div className="text-xs mb-1">{format(date, 'EEE', { locale: fr })}</div>
@@ -62,7 +62,7 @@ export function Calendar({
         {availableSlots.length === 0 ? (
           <p className="text-gray-500">Aucun créneau disponible</p>
         ) : (
-          <div className="grid grid-cols-4 gap-2">
+          <div className="grid grid-cols-4 gap-2 ">
             {availableSlots.map((time) => (
               <button
                 key={time}
@@ -71,10 +71,10 @@ export function Calendar({
                 className={clsx(
                   'p-2 rounded-lg text-sm font-medium transition-colors',
                   selectedTime === time
-                    ? 'bg-indigo-600 text-white'
+                    ? 'bg-indigo-600 text-white dark:hover:bg-gray-600 dark:hover:text-white '
                     : isSlotBooked(time)
                     ? 'bg-gray-200 text-gray-500 opacity-50 cursor-not-allowed'
-                    : 'border border-gray-200 hover:bg-indigo-50'
+                    : 'border border-gray-200 hover:bg-blue-50 dark:hover:bg-gray-600 dark:hover:text-black '
                 )}
               >
                 {time}

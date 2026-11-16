@@ -2,12 +2,25 @@ import React, { useState, useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/auth";
-import { LogIn, UserCircle, LogOut, MessageSquare, TrendingUp, BarChart, Globe } from "lucide-react";
+import { LogIn, UserCircle, LogOut, MessageSquare, TrendingUp, BarChart, Bell } from "lucide-react";
 import { AuthModal } from "./AuthModal";
 import { motion } from "framer-motion";
 import logo from "../assets/img/logo1.png";
 import { ThemeToggle } from "./ThemeToggle";
 import { Chat } from "./Chat";
+import { Notifications } from "./Notifications";
+import toast from "react-hot-toast";
+
+interface NotificationItem {
+  id: string;
+  type: 'appointment' | 'reminder' | 'alert';
+  title: string;
+  message: string;
+  time: string;
+  read: boolean;
+  action?: string | null;
+  waitlistEntryId?: string | null;
+}
 
 export function Navigation() {
   const { t, i18n } = useTranslation();
@@ -15,6 +28,8 @@ export function Navigation() {
   const { user, isAuthenticated, setUser, setToken } = useAuthStore();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
+  const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   useEffect(() => {
     const storedUser = localStorage.getItem("user");
@@ -25,6 +40,76 @@ export function Navigation() {
       setToken(storedToken);
     }
   }, [setUser, setToken]);
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      setNotifications([]);
+      return;
+    }
+
+    let isActive = true;
+    const loadNotifications = async () => {
+      try {
+        const response = await fetch('http://localhost:3000/api/notifications', {
+          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        });
+        if (!response.ok) return;
+        const data = await response.json();
+        if (!isActive) return;
+        setNotifications((data.notifications || []).map((item: any) => ({
+          id: item._id,
+          type: item.type,
+          title: item.title,
+          message: item.message,
+          time: new Date(item.createdAt).toLocaleString(),
+          read: Boolean(item.readAt),
+          action: item.action || null,
+          waitlistEntryId: item.waitlistEntryId || null,
+        })));
+      } catch (error) {
+        console.error('Impossible de charger les notifications:', error);
+      }
+    };
+
+    loadNotifications();
+    const intervalId = window.setInterval(loadNotifications, 30000);
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+    };
+  }, [isAuthenticated]);
+
+  const markNotificationAsRead = async (id: string) => {
+    const previous = notifications;
+    setNotifications((items) => items.map((item) => item.id === id ? { ...item, read: true } : item));
+    try {
+      const response = await fetch(`http://localhost:3000/api/notifications/${id}/read`, {
+        method: 'PATCH',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      if (!response.ok) setNotifications(previous);
+    } catch {
+      setNotifications(previous);
+    }
+  };
+
+  const confirmWaitlistOffer = async (notification: NotificationItem) => {
+    if (!notification.waitlistEntryId) return;
+    try {
+      const response = await fetch(`http://localhost:3000/api/waitlist/${notification.waitlistEntryId}/confirm`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Impossible de confirmer ce créneau.');
+      setNotifications((items) => items.map((item) => item.id === notification.id
+        ? { ...item, read: true, action: null }
+        : item));
+      toast.success(data.message || 'Créneau réservé avec succès.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Impossible de confirmer ce créneau.');
+    }
+  };
 
   const handleLogout = () => {
     setUser(null);
@@ -102,6 +187,8 @@ export function Navigation() {
                     <span>{t("chat")}</span>
                   </button>
 
+
+
                   {user?.data?.role === "doctor" && (
                     <Link
                       to="/doctor/statistics"
@@ -147,7 +234,27 @@ export function Navigation() {
                       </Link>
                     </motion.div>
                   )}
+                   <div className="relative">
+                    <button
+                      onClick={() => setIsNotificationsOpen((open) => !open)}
+                      className="relative flex items-center space-x-2 dark:text-white text-gray-700 hover:text-indigo-600"
+                      aria-label="Afficher les notifications"
+                      aria-expanded={isNotificationsOpen}
+                    >
+                      <Bell className="w-5 h-5" />
+                      {notifications.some((item) => !item.read) && (
+                        <span className="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-red-500" />
+                      )} <span>{t("notification")}</span>
+                    </button>
 
+                    {isNotificationsOpen && (
+                      <Notifications
+                        notifications={notifications}
+                        onMarkAsRead={markNotificationAsRead}
+                        onConfirmWaitlist={confirmWaitlistOffer}
+                      />
+                    )}
+                  </div>
                   <button
                     onClick={handleLogout}
                     className="flex items-center space-x-2 dark:text-white text-gray-600 hover:text-gray-800"

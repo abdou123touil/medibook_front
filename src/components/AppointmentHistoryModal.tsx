@@ -204,14 +204,14 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
 
             <div className="space-y-4">
               {appointments.length === 0 ? (
-                <p className="text-gray-500 dark:text-gray-400 text-center">
+                <p className="text-gray-500 dark:text-gray-400 text-center dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ">
                   Aucun rendez-vous trouvé.
                 </p>
               ) : (
                 appointments.map((appointment) => (
                   <div
                     key={appointment._id}
-                    className={`rounded-lg p-4 shadow-sm border ${
+                    className={`rounded-lg p-4 shadow-sm border dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${
                       appointment.status === 'cancelled'
                         ? 'bg-red-50 border-red-200'
                         : appointment.status === 'completed'
@@ -219,7 +219,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                         : 'bg-blue-50 border-blue-200'
                     }`}
                   >
-                    <div className="flex justify-between items-start">
+                    <div className="flex justify-between items-start dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
                       <div>
                         <h3 className="font-semibold text-gray-900 dark:text-gray-100">
                           Patient:{' '}
