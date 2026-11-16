@@ -96,7 +96,9 @@ export function Chat({ onClose }: ChatProps) {
               "Content-Type": "application/json",
             },
           }),
-          fetch(`http://localhost:3000/api/chat/user/${user.data.id}`),
+          fetch(`http://localhost:3000/api/chat/user/${user.data.id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
         ]);
 
         const appointmentsData = await appointmentsRes.json();
@@ -249,6 +251,7 @@ export function Chat({ onClose }: ChatProps) {
   useEffect(() => {
     const socket = io("http://localhost:3000", {
       withCredentials: true,
+      auth: { token: localStorage.getItem('token') },
     });
     socketRef.current = socket;
 
@@ -378,7 +381,8 @@ export function Chat({ onClose }: ChatProps) {
             ]);
           } else {
             const response = await fetch(
-              `http://localhost:3000/api/chat/conversation/${user.data.id}/${otherUser._id}`
+              `http://localhost:3000/api/chat/conversation/${user.data.id}/${otherUser._id}`,
+              { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
             );
 
             if (!response.ok) {

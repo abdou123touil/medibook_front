@@ -3,7 +3,7 @@ import { X } from 'lucide-react';
 import { Calendar } from './Calendar';
 import { format } from 'date-fns';
 import { ar, enUS, fr } from 'date-fns/locale';
-import { Doctor, Appointment } from '../types';
+import { Doctor } from '../types';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
@@ -95,7 +95,6 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [isTeleconsultation, setIsTeleconsultation] = useState(false);
-  const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [liveAvailability, setLiveAvailability] = useState<Record<string, string[]>>({});
   const [blockedPeriods, setBlockedPeriods] = useState<{ startDate: string; endDate: string }[]>([]);
   const [waitlistJoined, setWaitlistJoined] = useState(false);
@@ -121,32 +120,21 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
     let isActive = true;
     const refreshBookingData = async () => {
       try {
-        const token = localStorage.getItem('token');
         const today = new Date();
         const startDate = format(today, 'yyyy-MM-dd');
         const end = new Date(today);
         end.setDate(end.getDate() + 14);
         const endDate = format(end, 'yyyy-MM-dd');
 
-        const [appointmentsResponse, slotsResponse] = await Promise.all([
-          fetch(`http://localhost:3000/api/appointments/doctor/${doctor._id}`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          fetch(`http://localhost:3000/api/users/doctors/${doctor._id}/available-slots?startDate=${startDate}&endDate=${endDate}`),
-        ]);
-        if (!appointmentsResponse.ok || !slotsResponse.ok) {
+        const slotsResponse = await fetch(
+          `http://localhost:3000/api/users/doctors/${doctor._id}/available-slots?startDate=${startDate}&endDate=${endDate}`
+        );
+        if (!slotsResponse.ok) {
           throw new Error(t('errorFetchAvailability'));
         }
 
-        const [appointmentsData, slotsData] = await Promise.all([
-          appointmentsResponse.json(),
-          slotsResponse.json(),
-        ]);
-        if (!Array.isArray(appointmentsData.appointments)) {
-          throw new Error(t('invalidAppointmentsResponse'));
-        }
+        const slotsData = await slotsResponse.json();
         if (!isActive) return;
-        setAppointments(appointmentsData.appointments);
         setLiveAvailability(slotsData.availableSlots || {});
         setBlockedPeriods(slotsData.blockedPeriods || []);
       } catch (error) {
@@ -195,18 +183,11 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
       return;
     }
 
-    const formattedDate = selectedDate.toISOString().split('T')[0];
+    const formattedDate = format(selectedDate, 'yyyy-MM-dd');
     const symptoms = selectedSymptoms.join(', ');
 
-    // Check if the slot is already booked
-    const isBooked = Array.isArray(appointments) && appointments.some(
-      apt =>
-        format(new Date(apt.date), 'yyyy-MM-dd') === formattedDate &&
-        apt.time === selectedTime &&
-        ['pending', 'accepted', 'completed'].includes(apt.status)
-    );
-
-    if (isBooked) {
+    // The API slot list is authoritative and already excludes reserved times.
+    if (!(liveAvailability[formattedDate] || []).includes(selectedTime)) {
       toast.error(t('slotAlreadyUnavailable'));
       return;
     }
@@ -287,12 +268,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
   const symptoms = symptomsBySpeciality[doctor.speciality] || [];
 
   const isSlotBooked = (time: string) => {
-    const isBooked = Array.isArray(appointments) && appointments.some(
-      apt =>
-        format(new Date(apt.date), 'yyyy-MM-dd') === formattedDate &&
-        apt.time === time &&
-        ['pending', 'accepted', 'completed'].includes(apt.status)
-    );
+    const isBooked = !availableSlots.includes(time);
 
     const now = new Date();
     const isToday = format(now, 'yyyy-MM-dd') === formattedDate;
@@ -313,12 +289,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
       .filter((time) => {
         const isBlocked = blockedPeriods.some((period) => date >= period.startDate && date <= period.endDate);
         const appointmentDateTime = new Date(`${date}T${time}:00`);
-        const isBooked = appointments.some((appointment) =>
-          format(new Date(appointment.date), 'yyyy-MM-dd') === date
-          && appointment.time === time
-          && ['pending', 'accepted', 'completed'].includes(appointment.status)
-        );
-        return !isBlocked && !isBooked && appointmentDateTime > new Date();
+        return !isBlocked && appointmentDateTime > new Date();
       })
       .map((time) => ({ date, time, dateTime: new Date(`${date}T${time}:00`) }))
     )
