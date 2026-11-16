@@ -2,6 +2,7 @@ import React from 'react';
 import { FileText, Download, Pill, Calendar } from 'lucide-react';
 import jsPDF from 'jspdf';
 import { useTranslation } from 'react-i18next';
+import { displayPrescriptionValue } from '../lib/prescriptions';
 
 interface Prescription {
   id: string;
@@ -10,8 +11,11 @@ interface Prescription {
   medications: {
     name: string;
     dosage: string;
+    route?: string;
     frequency: string;
     duration: string;
+    quantity?: string;
+    instructions?: string;
   }[];
   notes?: string;
 }
@@ -31,9 +35,14 @@ export function Prescriptions({ prescriptions }: PrescriptionsProps) {
     document.text(`${t('date')}: ${prescription.date}`, 18, 40);
     let y = 54;
     prescription.medications.forEach((medication, index) => {
-      const details = [medication.dosage, medication.frequency, medication.duration].filter(Boolean).join(' — ');
+      const details = [medication.dosage, medication.route, medication.frequency, medication.duration, medication.quantity]
+        .filter(Boolean).map((value) => displayPrescriptionValue(value, t)).join(' — ');
       document.text(`${index + 1}. ${medication.name}${details ? ` : ${details}` : ''}`, 18, y, { maxWidth: 175 });
       y += 10;
+      if (medication.instructions) {
+        document.text(document.splitTextToSize(`${t('instructions')}: ${medication.instructions}`, 165), 25, y);
+        y += 8;
+      }
     });
     if (prescription.notes) {
       document.text(`${t('recommendations')}:`, 18, y + 4);
@@ -74,10 +83,12 @@ export function Prescriptions({ prescriptions }: PrescriptionsProps) {
                   <Pill className="w-5 h-5 text-indigo-600 mt-1" />
                   <div>
                     <h4 className="font-medium">{med.name}</h4>
-                    {(med.dosage || med.frequency) && (
-                      <p className="text-sm text-slate-600">{[med.dosage, med.frequency].filter(Boolean).join(' - ')}</p>
+                    {(med.dosage || med.route || med.frequency) && (
+                      <p className="text-sm text-slate-600 dark:text-slate-300">{[med.dosage, med.route, med.frequency].filter(Boolean).map((value) => displayPrescriptionValue(value, t)).join(' - ')}</p>
                     )}
-                    {med.duration && <p className="text-sm text-slate-500">{t('duration')}: {med.duration}</p>}
+                    {med.duration && <p className="text-sm text-slate-500">{t('duration')}: {displayPrescriptionValue(med.duration, t)}</p>}
+                    {med.quantity && <p className="text-sm text-slate-500">{t('quantity')}: {med.quantity}</p>}
+                    {med.instructions && <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t('instructions')}: {med.instructions}</p>}
                   </div>
                 </div>
               ))}

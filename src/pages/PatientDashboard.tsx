@@ -18,6 +18,7 @@ import { Prescriptions } from "../components/Prescriptions";
 import toast from "react-hot-toast";
 import "react-date-range/dist/styles.css";
 import "react-date-range/dist/theme/default.css";
+import { normalizePrescription } from "../lib/prescriptions";
 
 interface Stat {
   date: string;
@@ -66,7 +67,10 @@ interface PatientClinicalRecord {
     symptoms: string;
     diagnosis: string;
     treatment: string;
-    prescriptions: string[];
+    prescriptions: Array<string | {
+      name: string; dosage?: string; route?: string; frequency?: string;
+      duration?: string; quantity?: string; instructions?: string;
+    }>;
     notes: string;
     followUpAt?: string | null;
     followUpAppointmentId?: string | null;
@@ -269,14 +273,16 @@ const PatientDashboard = () => {
 
   const prescriptionRecords = patientRecords.flatMap((record) =>
     (record.consultations || [])
-      .filter((consultation) => consultation.prescriptions?.length)
-      .map((consultation) => ({
-        id: String(consultation.appointmentId),
-        date: format(new Date(consultation.consultationDate), 'dd/MM/yyyy'),
-        doctor: `${record.doctorId?.firstName || ''} ${record.doctorId?.lastName || ''}`.trim(),
-        medications: consultation.prescriptions.map((name) => ({ name, dosage: '', frequency: '', duration: '' })),
-        notes: consultation.treatment || consultation.notes,
-      }))
+      .flatMap((consultation) => {
+        const medications = (consultation.prescriptions || []).map(normalizePrescription).filter((item) => item.name);
+        return medications.length ? [{
+          id: String(consultation.appointmentId),
+          date: format(new Date(consultation.consultationDate), 'dd/MM/yyyy'),
+          doctor: `${record.doctorId?.firstName || ''} ${record.doctorId?.lastName || ''}`.trim(),
+          medications,
+          notes: consultation.treatment || consultation.notes,
+        }] : [];
+      })
   );
 
   // Update timers for teleconsultation appointments

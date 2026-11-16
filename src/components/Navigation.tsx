@@ -158,7 +158,7 @@ export function Navigation() {
 
   return (
     <>
-      <nav className="border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
+      <nav className="relative z-[80] border-b border-slate-200 bg-white/95 shadow-sm backdrop-blur dark:border-slate-800 dark:bg-slate-950/95">
         <div className="container mx-auto px-4">
           <div className="flex min-h-16 flex-wrap items-center justify-between gap-3 py-2 dark:text-indigo-400">
             <img onClick={uselrole} src={logo} alt="Logo" className="h-14 w-20 cursor-pointer object-contain" />

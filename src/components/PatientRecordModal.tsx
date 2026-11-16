@@ -1,11 +1,12 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from "../lib/api";
-import { X, Save, ClipboardList, Printer, FileText, Pill, Stethoscope, CalendarCheck } from 'lucide-react';
+import { X, Save, ClipboardList, Printer, FileText, Pill, Stethoscope, CalendarCheck, Plus, Trash2, Pencil } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
 import { useAuthStore } from '../store/auth';
+import { displayPrescriptionValue, normalizePrescriptions, type PrescriptionItem } from '../lib/prescriptions';
 
 interface RecordAppointment {
   _id: string;
@@ -21,11 +22,78 @@ interface ConsultationEntry {
   symptoms: string;
   diagnosis: string;
   treatment: string;
-  prescriptions: string[];
+  prescriptions: Array<string | PrescriptionItem>;
   notes: string;
   followUpAt?: string | null;
   followUpAppointmentId?: string | null;
 }
+
+interface PrescriptionItem {
+  name: string;
+  dosage: string;
+  route: string;
+  frequency: string;
+  duration: string;
+  quantity: string;
+  instructions: string;
+}
+
+const emptyPrescription: PrescriptionItem = {
+  name: '', dosage: '', route: '', frequency: '', duration: '', quantity: '', instructions: '',
+};
+
+type PrescriptionSelectField = 'dosage' | 'route' | 'frequency' | 'duration';
+const prescriptionOptions: Record<PrescriptionSelectField, Array<{ value: string; label: string }>> = {
+  dosage: [
+    { value: 'preset:doseHalfTablet', label: 'doseHalfTablet' }, { value: 'preset:doseOneTablet', label: 'doseOneTablet' },
+    { value: 'preset:doseTwoTablets', label: 'doseTwoTablets' }, { value: 'preset:doseFiveMl', label: 'doseFiveMl' },
+    { value: 'preset:doseTenMl', label: 'doseTenMl' }, { value: 'preset:doseOneDrop', label: 'doseOneDrop' },
+    { value: 'preset:doseTwoDrops', label: 'doseTwoDrops' }, { value: 'preset:doseOnePuff', label: 'doseOnePuff' },
+    { value: 'preset:doseTwoPuffs', label: 'doseTwoPuffs' },
+  ],
+  route: [
+    { value: 'preset:routeOral', label: 'routeOral' }, { value: 'preset:routeSublingual', label: 'routeSublingual' },
+    { value: 'preset:routeTopical', label: 'routeTopical' }, { value: 'preset:routeInhaled', label: 'routeInhaled' },
+    { value: 'preset:routeNasal', label: 'routeNasal' }, { value: 'preset:routeOphthalmic', label: 'routeOphthalmic' },
+    { value: 'preset:routeOtic', label: 'routeOtic' }, { value: 'preset:routeRectal', label: 'routeRectal' },
+    { value: 'preset:routeSubcutaneous', label: 'routeSubcutaneous' }, { value: 'preset:routeIntramuscular', label: 'routeIntramuscular' },
+    { value: 'preset:routeIntravenous', label: 'routeIntravenous' },
+  ],
+  frequency: [
+    { value: 'preset:frequencyDaily', label: 'frequencyDaily' }, { value: 'preset:frequencyTwiceDaily', label: 'frequencyTwiceDaily' },
+    { value: 'preset:frequencyThreeDaily', label: 'frequencyThreeDaily' }, { value: 'preset:frequencyEvery8Hours', label: 'frequencyEvery8Hours' },
+    { value: 'preset:frequencyEvery12Hours', label: 'frequencyEvery12Hours' }, { value: 'preset:frequencyAsNeeded', label: 'frequencyAsNeeded' },
+    { value: 'preset:frequencyWeekly', label: 'frequencyWeekly' },
+  ],
+  duration: [
+    { value: 'preset:duration3Days', label: 'duration3Days' }, { value: 'preset:duration5Days', label: 'duration5Days' },
+    { value: 'preset:duration7Days', label: 'duration7Days' }, { value: 'preset:duration10Days', label: 'duration10Days' },
+    { value: 'preset:duration14Days', label: 'duration14Days' }, { value: 'preset:durationLongTerm', label: 'durationLongTerm' },
+    { value: 'preset:durationUntilFollowUp', label: 'durationUntilFollowUp' },
+  ],
+};
+
+function PrescriptionSelect({ field, value, onChange }: { field: PrescriptionSelectField; value: string; onChange: (value: string) => void }) {
+  const { t } = useTranslation();
+  const options = prescriptionOptions[field];
+  const isCustom = value === '__custom__' || Boolean(value && !options.some((option) => option.value === value));
+  return (
+    <>
+      <select value={isCustom ? '__custom__' : value} onChange={(event) => onChange(event.target.value)} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-900 dark:text-white">
+        <option value="">{t('select')}</option>
+        {options.map((option) => <option key={option.value} value={option.value}>{t(option.label)}</option>)}
+        <option value="__custom__">{t('custom')}</option>
+      </select>
+      {isCustom && <input value={value === '__custom__' ? '' : value} onChange={(event) => onChange(event.target.value)} placeholder={t('custom')} className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white" />}
+    </>
+  );
+}
+
+const formatPrescription = (item: PrescriptionItem, t: (key: string) => string) => {
+  const details = [item.dosage, item.route, item.frequency, item.duration, item.quantity]
+    .filter(Boolean).map((value) => displayPrescriptionValue(value, t)).join(' · ');
+  return `${item.name}${details ? ` — ${details}` : ''}${item.instructions ? ` (${t('instructions')}: ${item.instructions})` : ''}`;
+};
 
 interface PatientRecordModalProps {
   isOpen: boolean;
@@ -33,6 +101,7 @@ interface PatientRecordModalProps {
   patientId: string;
   patientName: string;
   appointment: RecordAppointment;
+  onSaved?: () => void;
 }
 
 type PrintableDocument = 'prescription' | 'certificate' | 'referral' | 'summary' | 'attendance';
@@ -48,7 +117,7 @@ const toLocalDateTimeInput = (value?: string | null) => {
   return new Date(date.getTime() - date.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
 };
 
-export function PatientRecordModal({ isOpen, onClose, patientId, patientName, appointment }: PatientRecordModalProps) {
+export function PatientRecordModal({ isOpen, onClose, patientId, patientName, appointment, onSaved }: PatientRecordModalProps) {
   const { t } = useTranslation();
   const { user } = useAuthStore();
   const [appointments, setAppointments] = useState<RecordAppointment[]>([]);
@@ -59,7 +128,12 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
   const [currentMedications, setCurrentMedications] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
   const [treatment, setTreatment] = useState('');
-  const [prescriptions, setPrescriptions] = useState('');
+  const [prescriptions, setPrescriptions] = useState<PrescriptionItem[]>([]);
+  const [prescriptionDraft, setPrescriptionDraft] = useState<PrescriptionItem>({ ...emptyPrescription });
+  const [editingPrescriptionIndex, setEditingPrescriptionIndex] = useState<number | null>(null);
+  const [medicationSuggestions, setMedicationSuggestions] = useState<string[]>([]);
+  const [isSearchingMedications, setIsSearchingMedications] = useState(false);
+  const [hasUnrecognizedPrescriptions, setHasUnrecognizedPrescriptions] = useState(false);
   const [notes, setNotes] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const [loadError, setLoadError] = useState('');
@@ -77,7 +151,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
   );
   const selectedSavedConsultation = consultations.find((entry) => String(entry.appointmentId) === selectedAppointmentId);
   const hasUnbookedLegacyFollowUp = Boolean(selectedSavedConsultation?.followUpAt && !selectedSavedConsultation.followUpAppointmentId);
-  const currentPrescriptions = prescriptions.split('\n').map((item) => item.trim()).filter(Boolean);
+  const currentPrescriptions = prescriptions.filter((item) => item.name.trim());
   const followUpSlotOptions = Object.entries(availableFollowUpSlots)
     .flatMap(([date, times]) => times.map((time) => ({ value: `${date}T${time}`, date, time })))
     .sort((a, b) => a.value.localeCompare(b.value));
@@ -89,7 +163,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
     && selectedSavedConsultation.diagnosis === diagnosis
     && selectedSavedConsultation.treatment === treatment
     && selectedSavedConsultation.notes === notes
-    && JSON.stringify(selectedSavedConsultation.prescriptions || []) === JSON.stringify(currentPrescriptions)
+    && JSON.stringify(normalizePrescriptions(selectedSavedConsultation.prescriptions)) === JSON.stringify(currentPrescriptions)
     && (selectedSavedConsultation.followUpAt ? new Date(selectedSavedConsultation.followUpAt).getTime() : null)
       === (followUpAt ? new Date(followUpAt).getTime() : null));
 
@@ -116,10 +190,10 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
       referral: t('referralLetter'), summary: t('consultationSummary'), attendance: t('attendanceCertificate'),
     };
     const contentByType: Record<PrintableDocument, string> = {
-      prescription: `<h2>${t('prescription')}</h2><ul>${currentPrescriptions.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>${treatment.trim() ? `<h2>${t('recommendations')}</h2><p>${escapeHtml(treatment).replace(/\n/g, '<br>')}</p>` : ''}`,
+      prescription: `<h2>${t('prescription')}</h2><ol>${currentPrescriptions.map((item) => `<li><strong>${escapeHtml(item.name)}</strong>${item.dosage ? `<p>${t('dosage')}: ${escapeHtml(displayPrescriptionValue(item.dosage, t))}</p>` : ''}${item.route ? `<p>${t('routeOfAdministration')}: ${escapeHtml(displayPrescriptionValue(item.route, t))}</p>` : ''}${item.frequency ? `<p>${t('frequency')}: ${escapeHtml(displayPrescriptionValue(item.frequency, t))}</p>` : ''}${item.duration ? `<p>${t('duration')}: ${escapeHtml(displayPrescriptionValue(item.duration, t))}</p>` : ''}${item.quantity ? `<p>${t('quantity')}: ${escapeHtml(item.quantity)}</p>` : ''}${item.instructions ? `<p>${t('instructions')}: ${escapeHtml(item.instructions)}</p>` : ''}</li>`).join('')}</ol>${treatment.trim() ? `<h2>${t('recommendations')}</h2><p>${escapeHtml(treatment).replace(/\n/g, '<br>')}</p>` : ''}`,
       certificate: `<p>${t('certificateBody', { patient: escapeHtml(patientName), days: escapeHtml(certificateDuration.trim()) })}</p>${diagnosis.trim() ? `<p><strong>${t('diagnosis')} :</strong> ${escapeHtml(diagnosis)}</p>` : ''}`,
       referral: `<p>${t('referralRecipient')}: ${escapeHtml(referralRecipient.trim())}</p><p>${t('referralReason')}: ${escapeHtml(referralReason.trim() || diagnosis || treatment || t('notProvided'))}</p>${diagnosis.trim() ? `<p><strong>${t('diagnosis')} :</strong> ${escapeHtml(diagnosis)}</p>` : ''}`,
-      summary: `<p><strong>${t('reportedReason')} :</strong> ${escapeHtml(selectedAppointment?.symptoms || t('notProvided'))}</p>${diagnosis.trim() ? `<p><strong>${t('diagnosis')} :</strong> ${escapeHtml(diagnosis)}</p>` : ''}${treatment.trim() ? `<p><strong>${t('recommendations')} :</strong><br>${escapeHtml(treatment).replace(/\n/g, '<br>')}</p>` : ''}${currentPrescriptions.length ? `<h2>${t('prescription')}</h2><ul>${currentPrescriptions.map((item) => `<li>${escapeHtml(item)}</li>`).join('')}</ul>` : ''}${notes.trim() ? `<h2>${t('notes')}</h2><p>${escapeHtml(notes).replace(/\n/g, '<br>')}</p>` : ''}${followUpAt ? `<p><strong>${t('followUpRecommended')} :</strong> ${escapeHtml(format(new Date(followUpAt), 'dd/MM/yyyy HH:mm', { locale: fr }))}</p>` : ''}`,
+      summary: `<p><strong>${t('reportedReason')} :</strong> ${escapeHtml(selectedAppointment?.symptoms || t('notProvided'))}</p>${diagnosis.trim() ? `<p><strong>${t('diagnosis')} :</strong> ${escapeHtml(diagnosis)}</p>` : ''}${treatment.trim() ? `<p><strong>${t('recommendations')} :</strong><br>${escapeHtml(treatment).replace(/\n/g, '<br>')}</p>` : ''}${currentPrescriptions.length ? `<h2>${t('prescription')}</h2><ul>${currentPrescriptions.map((item) => `<li>${escapeHtml(formatPrescription(item, t))}</li>`).join('')}</ul>` : ''}${notes.trim() ? `<h2>${t('notes')}</h2><p>${escapeHtml(notes).replace(/\n/g, '<br>')}</p>` : ''}${followUpAt ? `<p><strong>${t('followUpRecommended')} :</strong> ${escapeHtml(format(new Date(followUpAt), 'dd/MM/yyyy HH:mm', { locale: fr }))}</p>` : ''}`,
       attendance: `<p>${t('attendanceBody', { patient: escapeHtml(patientName), date: dateLabel, time: escapeHtml(selectedAppointment?.time || appointment.time) })}</p>`,
     };
     const printWindow = window.open('', '_blank');
@@ -161,11 +235,12 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
         const initialEntry = requestedEntry && hasClinicalData(requestedEntry)
           ? requestedEntry
           : latestSavedEntry || requestedEntry;
+        setHasUnrecognizedPrescriptions((initialEntry?.prescriptions || []).some((item) => !normalizePrescriptions([item]).length));
         const initialAppointmentId = String(initialEntry?.appointmentId || appointment._id);
         setSelectedAppointmentId(initialAppointmentId);
         setDiagnosis(initialEntry?.diagnosis || '');
         setTreatment(initialEntry?.treatment || '');
-        setPrescriptions((initialEntry?.prescriptions || []).join('\n'));
+        setPrescriptions(normalizePrescriptions(initialEntry?.prescriptions));
         setNotes(initialEntry?.notes || '');
         setFollowUpAt(toLocalDateTimeInput(initialEntry?.followUpAt));
       } catch (error) {
@@ -207,10 +282,48 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
     const entry = consultations.find((item) => String(item.appointmentId) === selectedAppointmentId);
     setDiagnosis(entry?.diagnosis || '');
     setTreatment(entry?.treatment || '');
-    setPrescriptions((entry?.prescriptions || []).join('\n'));
+    setPrescriptions(normalizePrescriptions(entry?.prescriptions));
+    setHasUnrecognizedPrescriptions((entry?.prescriptions || []).some((item) => !normalizePrescriptions([item]).length));
+    setPrescriptionDraft({ ...emptyPrescription });
+    setMedicationSuggestions([]);
     setNotes(entry?.notes || '');
     setFollowUpAt(toLocalDateTimeInput(entry?.followUpAt));
   }, [selectedAppointmentId, consultations]);
+
+  useEffect(() => {
+    const query = prescriptionDraft.name.trim();
+    if (!isOpen || query.length < 2) {
+      setMedicationSuggestions([]);
+      setIsSearchingMedications(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setIsSearchingMedications(true);
+      try {
+        const response = await apiFetch(`http://localhost:3000/api/medications/search?q=${encodeURIComponent(query)}`, { signal: controller.signal });
+        const data = response.ok ? await response.json() : { results: [] };
+        setMedicationSuggestions(Array.isArray(data.results) ? data.results : []);
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') setMedicationSuggestions([]);
+      } finally {
+        if (!controller.signal.aborted) setIsSearchingMedications(false);
+      }
+    }, 300);
+    return () => { window.clearTimeout(timeout); controller.abort(); };
+  }, [prescriptionDraft.name, isOpen]);
+
+  const addPrescription = () => {
+    const name = prescriptionDraft.name.trim();
+    if (!name) return;
+    const completeDraft = Object.fromEntries(Object.entries(prescriptionDraft).map(([key, value]) => [key, value === '__custom__' ? '' : value])) as PrescriptionItem;
+    setPrescriptions((items) => editingPrescriptionIndex === null
+      ? [...items, { ...completeDraft, name }]
+      : items.map((item, index) => index === editingPrescriptionIndex ? { ...completeDraft, name } : item));
+    setPrescriptionDraft({ ...emptyPrescription });
+    setEditingPrescriptionIndex(null);
+    setMedicationSuggestions([]);
+  };
 
   const saveRecord = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -229,7 +342,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
             appointmentId: selectedAppointmentId,
             diagnosis,
             treatment,
-            prescriptions: prescriptions.split('\n').map((item) => item.trim()).filter(Boolean),
+            prescriptions: currentPrescriptions,
             notes,
             followUpAt: followUpAt ? new Date(followUpAt).toISOString() : null,
             followUpDate: followUpAt ? followUpAt.slice(0, 10) : null,
@@ -240,7 +353,9 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || t('patientRecordSaveError'));
       setConsultations(data.record.consultations || []);
+      setHasUnrecognizedPrescriptions(false);
       toast.success(t('patientRecordSaved'));
+      onSaved?.();
     } catch (error) {
       toast.error((error as Error).message);
     } finally {
@@ -315,7 +430,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
                         </div>
                         {entry.diagnosis && <p className="mt-2 text-sm"><strong>{t('diagnosis')}:</strong> {entry.diagnosis}</p>}
                         {entry.treatment && <p className="mt-1 text-sm"><strong>{t('recommendations')}:</strong> {entry.treatment}</p>}
-                        {entry.prescriptions?.length > 0 && <p className="mt-1 text-sm"><strong>{t('prescription')}:</strong> {entry.prescriptions.join(', ')}</p>}
+                        {entry.prescriptions?.length > 0 && <div className="mt-2 text-sm"><strong>{t('prescription')}:</strong><ul className="mt-1 list-disc pl-5">{normalizePrescriptions(entry.prescriptions).map((item, index) => <li key={`${item.name}-${index}`}>{formatPrescription(item, t)}</li>)}</ul></div>}
                         {entry.notes && <p className="mt-1 text-sm whitespace-pre-line"><strong>{t('notes')}:</strong> {entry.notes}</p>}
                         {!entry.diagnosis && !entry.treatment && !entry.notes && !entry.prescriptions?.length && (
                           <p className="mt-2 text-sm text-slate-500">{t('noMedicalNotes')}</p>
@@ -332,9 +447,31 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
                 <label className="text-sm font-medium">{t('treatmentRecommendations')}
                   <textarea value={treatment} onChange={(event) => setTreatment(event.target.value)} rows={3} className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950" />
                 </label>
-                <label className="text-sm font-medium">{t('prescriptionPerLine')}
-                  <textarea value={prescriptions} onChange={(event) => setPrescriptions(event.target.value)} rows={3} className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950" placeholder={t('medicationAndDosage')} />
-                </label>
+                <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-950/50 md:col-span-2">
+                  <div className="mb-3 flex items-center gap-2 font-semibold"><Pill className="h-5 w-5 text-indigo-600" />{t('prescription')}</div>
+                  {hasUnrecognizedPrescriptions && <p className="mb-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-200">{t('unrecognizedPrescriptionNotice')}</p>}
+                  <div className="relative">
+                    <label className="mb-1 block text-sm font-medium">{t('medicationName')}</label>
+                    <input value={prescriptionDraft.name} onChange={(event) => setPrescriptionDraft((draft) => ({ ...draft, name: event.target.value }))} placeholder={t('searchMedication')} className="w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 outline-none focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-900" />
+                    {(isSearchingMedications || medicationSuggestions.length > 0) && (
+                      <div className="absolute inset-x-0 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-xl border border-slate-200 bg-white p-1 shadow-xl dark:border-slate-700 dark:bg-slate-900">
+                        {isSearchingMedications && <p className="px-3 py-2 text-sm text-slate-500">{t('searchingMedications')}</p>}
+                        {medicationSuggestions.map((suggestion) => <button key={suggestion} type="button" onClick={() => { setPrescriptionDraft((draft) => ({ ...draft, name: suggestion })); setMedicationSuggestions([]); }} className="block w-full rounded-lg px-3 py-2 text-left text-sm hover:bg-indigo-50 dark:hover:bg-slate-800">{suggestion}</button>)}
+                      </div>
+                    )}
+                  </div>
+                  <p className="mt-1 text-xs text-slate-500 dark:text-slate-400">{t('medicationCatalogDisclaimer')}</p>
+                  <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">{t('dosage')}<PrescriptionSelect field="dosage" value={prescriptionDraft.dosage} onChange={(value) => setPrescriptionDraft((draft) => ({ ...draft, dosage: value }))} /></label>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">{t('routeOfAdministration')}<PrescriptionSelect field="route" value={prescriptionDraft.route} onChange={(value) => setPrescriptionDraft((draft) => ({ ...draft, route: value }))} /></label>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">{t('frequency')}<PrescriptionSelect field="frequency" value={prescriptionDraft.frequency} onChange={(value) => setPrescriptionDraft((draft) => ({ ...draft, frequency: value }))} /></label>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">{t('duration')}<PrescriptionSelect field="duration" value={prescriptionDraft.duration} onChange={(value) => setPrescriptionDraft((draft) => ({ ...draft, duration: value }))} /></label>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300">{t('quantity')}<input value={prescriptionDraft.quantity} onChange={(event) => setPrescriptionDraft((draft) => ({ ...draft, quantity: event.target.value }))} placeholder={t('quantityExample')} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white" /></label>
+                    <label className="text-xs font-medium text-slate-600 dark:text-slate-300 sm:col-span-2 lg:col-span-1">{t('instructions')}<input value={prescriptionDraft.instructions} onChange={(event) => setPrescriptionDraft((draft) => ({ ...draft, instructions: event.target.value }))} placeholder={t('instructionsExample')} className="mt-1 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 dark:border-slate-700 dark:bg-slate-900 dark:text-white" /></label>
+                  </div>
+                  <button type="button" disabled={!prescriptionDraft.name.trim()} onClick={addPrescription} className="mt-3 inline-flex min-h-10 items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-50">{editingPrescriptionIndex === null ? <Plus className="h-4 w-4" /> : <Save className="h-4 w-4" />}{editingPrescriptionIndex === null ? t('addMedication') : t('save')}</button>
+                  {prescriptions.length > 0 && <div className="mt-4 space-y-2">{prescriptions.map((item, index) => <div key={`${item.name}-${index}`} className="flex items-start justify-between gap-3 rounded-xl border border-slate-200 bg-white p-3 dark:border-slate-700 dark:bg-slate-900"><div className="min-w-0"><p className="font-semibold">{item.name}</p><p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{[item.dosage, item.route, item.frequency, item.duration, item.quantity].filter(Boolean).map((value) => displayPrescriptionValue(value, t)).join(' · ') || t('notSpecified')}</p>{item.instructions && <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{item.instructions}</p>}</div><div className="flex shrink-0 gap-1"><button type="button" onClick={() => { setPrescriptionDraft({ ...item }); setEditingPrescriptionIndex(index); }} className="rounded-lg p-2 text-indigo-600 transition hover:bg-indigo-50 dark:hover:bg-slate-800" aria-label={`${t('viewEdit')} ${item.name}`}><Pencil className="h-4 w-4" /></button><button type="button" onClick={() => { setPrescriptions((items) => items.filter((_, itemIndex) => itemIndex !== index)); if (editingPrescriptionIndex === index) { setPrescriptionDraft({ ...emptyPrescription }); setEditingPrescriptionIndex(null); } }} className="rounded-lg p-2 text-red-600 transition hover:bg-red-50 dark:text-red-300 dark:hover:bg-red-950/30" aria-label={`${t('delete')} ${item.name}`}><Trash2 className="h-4 w-4" /></button></div></div>)}</div>}
+                </div>
                 <label className="text-sm font-medium">{t('consultationNotes')}
                   <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950" />
                 </label>

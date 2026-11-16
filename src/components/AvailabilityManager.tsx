@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from "../lib/api";
-import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
+import { format, addDays, isSameDay } from 'date-fns';
 import { ar, enUS, fr } from 'date-fns/locale';
 import { Calendar as CalendarIcon, Plus, X, Ban, Repeat } from 'lucide-react';
 import clsx from 'clsx';
@@ -42,8 +42,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     return () => window.clearInterval(interval);
   }, []);
 
-  const startDate = startOfWeek(new Date(), { locale: dateLocale });
-  const weekDays = [...Array(35)].map((_, i) => addDays(startDate, i));
+  const weekDays = [...Array(35)].map((_, i) => addDays(new Date(), i));
 
   const timeSlots = [
     "08:00", "09:00", "10:00", "11:00", "12:00",

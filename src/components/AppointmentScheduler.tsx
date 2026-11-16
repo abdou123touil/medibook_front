@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from "../lib/api";
 import { useTranslation } from 'react-i18next';
-import { format, addDays, startOfWeek } from 'date-fns';
+import { format, addDays } from 'date-fns';
 import { ar, enUS, fr } from 'date-fns/locale';
 import { Calendar as CalendarIcon, Plus } from 'lucide-react';
 import clsx from 'clsx';
@@ -22,7 +22,7 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
   const { user, isAuthenticated } = useAuthStore();
 
-  const startDate = startOfWeek(new Date(), { locale: dateLocale });
+  const startDate = new Date();
   const weekDays = [...Array(14)].map((_, i) => addDays(startDate, i));
 
   useEffect(() => {

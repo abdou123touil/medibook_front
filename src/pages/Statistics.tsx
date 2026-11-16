@@ -22,6 +22,7 @@ import {
 import { useAuthStore } from '../store/auth';
 import { Navigate } from 'react-router-dom';
 import { AppointmentHistoryModal } from '../components/AppointmentHistoryModal';
+import { PatientRecordModal } from '../components/PatientRecordModal';
 import { Appointment } from '../types';
 import { DateRangePicker } from 'react-date-range';
 import 'react-date-range/dist/styles.css';
@@ -48,6 +49,15 @@ interface StatusData {
 interface PeakHour {
   time: string;
   count: number;
+}
+
+interface IncompleteAppointment {
+  _id: string;
+  date: string;
+  time: string;
+  status: string;
+  symptoms: string;
+  patientId: { _id: string; firstName: string; lastName: string } | null;
 }
 
 const CustomTooltip = ({ active, payload, label, statType }: any) => {
@@ -85,10 +95,11 @@ export function Statistics() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>('all');
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [patientRecordAppointment, setPatientRecordAppointment] = useState<IncompleteAppointment | null>(null);
   const [isDateModalOpen, setIsDateModalOpen] = useState(false);
   const [isDateRangePickerOpen, setIsDateRangePickerOpen] = useState(false);
   const [historicAppointments, setHistoricAppointments] = useState<Appointment[]>([]);
+  const [incompleteAppointments, setIncompleteAppointments] = useState<IncompleteAppointment[]>([]);
   const [selectedDateAppointments, setSelectedDateAppointments] = useState<Appointment[]>([]);
   const [dateRange, setDateRange] = useState({
     startDate: new Date(),
@@ -136,7 +147,9 @@ export function Statistics() {
         };
       });
       setStats(formattedStats);
-      setIncompleteDetailsCount(data.incompleteDetailsCount || 0);
+      const missingAppointments = Array.isArray(data.incompleteAppointments) ? data.incompleteAppointments : [];
+      setIncompleteAppointments(missingAppointments);
+      setIncompleteDetailsCount(Number(data.incompleteDetailsCount ?? missingAppointments.length) || 0);
       setNoShowRate(data.noShowRate || 0);
       setRecurrentPatients(data.recurrentPatients || 0);
       setPeakHours(data.peakHours || []);
@@ -213,12 +226,10 @@ useEffect(() => {
     return total.toString();
   };
 
-  const openHistoricModal = () => {
-    setIsModalOpen(true);
-  };
-
-  const closeHistoricModal = () => {
-    setIsModalOpen(false);
+  const openIncompletePatientRecord = () => {
+    const nextAppointment = incompleteAppointments.find((item) => item.patientId?._id);
+    if (!nextAppointment) return;
+    setPatientRecordAppointment(nextAppointment);
   };
 
   const handleChartClick = (data: any) => {
@@ -442,7 +453,8 @@ useEffect(() => {
                 </p>
                 {incompleteDetailsCount > 0 && (
                   <button
-                    onClick={openHistoricModal}
+                    onClick={openIncompletePatientRecord}
+                    disabled={!incompleteAppointments.some((item) => item.patientId?._id)}
                     className="mt-4 inline-flex min-h-10 items-center rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700"
                   >
                     {t('completeDetails')}
@@ -619,18 +631,22 @@ useEffect(() => {
       </div>
 
       <AppointmentHistoryModal
-        isOpen={isModalOpen}
-        onClose={closeHistoricModal}
-        appointments={historicAppointments}
-        onDetailsSaved={() => { void loadStats(); }}
-      />
-      <AppointmentHistoryModal
         isOpen={isDateModalOpen}
         onClose={closeDateModal}
         appointments={selectedDateAppointments}
         onDetailsSaved={() => { void loadStats(); }}
         title={t('appointmentsForDate', { date: selectedDateAppointments[0]?.date ? format(parseISO(selectedDateAppointments[0].date), 'dd MMM yyyy', { locale: dateLocale }) : '' })}
       />
+      {patientRecordAppointment?.patientId && (
+        <PatientRecordModal
+          isOpen
+          onClose={() => setPatientRecordAppointment(null)}
+          patientId={patientRecordAppointment.patientId._id}
+          patientName={`${patientRecordAppointment.patientId.firstName || ''} ${patientRecordAppointment.patientId.lastName || ''}`.trim()}
+          appointment={patientRecordAppointment}
+          onSaved={() => { void loadStats(); }}
+        />
+      )}
     </div>
   );
 }
