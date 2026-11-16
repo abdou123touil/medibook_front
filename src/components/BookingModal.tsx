@@ -100,6 +100,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
   const [isTeleconsultation, setIsTeleconsultation] = useState(false);
   const [liveAvailability, setLiveAvailability] = useState<Record<string, string[]>>({});
   const [blockedPeriods, setBlockedPeriods] = useState<{ startDate: string; endDate: string }[]>([]);
+  const [patientBusySlots, setPatientBusySlots] = useState<Record<string, string[]>>({});
   const [waitlistJoined, setWaitlistJoined] = useState(false);
   const [joiningWaitlist, setJoiningWaitlist] = useState(false);
 
@@ -140,6 +141,24 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
         if (!isActive) return;
         setLiveAvailability(slotsData.availableSlots || {});
         setBlockedPeriods(slotsData.blockedPeriods || []);
+
+        if (isAuthenticated) {
+          const appointmentsResponse = await apiFetch('http://localhost:3000/api/appointments');
+          if (appointmentsResponse.ok) {
+            const appointmentsData = await appointmentsResponse.json();
+            const busySlots: Record<string, string[]> = {};
+            for (const appointment of appointmentsData.appointments || []) {
+              if (!['pending', 'accepted'].includes(appointment.status)) continue;
+              const date = new Date(appointment.date);
+              if (Number.isNaN(date.getTime())) continue;
+              const dateKey = format(date, 'yyyy-MM-dd');
+              busySlots[dateKey] = [...(busySlots[dateKey] || []), appointment.time];
+            }
+            if (isActive) setPatientBusySlots(busySlots);
+          }
+        } else {
+          setPatientBusySlots({});
+        }
       } catch (error) {
         
       }
@@ -151,7 +170,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
       isActive = false;
       window.clearInterval(intervalId);
     };
-  }, [isOpen, doctor?._id]);
+  }, [isOpen, doctor?._id, isAuthenticated]);
 
   // Handle symptom checkbox changes
   const handleSymptomChange = (symptom: string) => {
@@ -166,6 +185,11 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
     if (!doctor) return;
 
     const bookingDateKey = format(selectedDate, 'yyyy-MM-dd');
+    if ((patientBusySlots[bookingDateKey] || []).includes(selectedTime || '')) {
+      toast.error(t('appointmentTimeConflict'));
+      setSelectedTime(null);
+      return;
+    }
     if (blockedPeriods.some((period) => bookingDateKey >= period.startDate && bookingDateKey <= period.endDate)) {
       toast.error(t('doctorAbsentDay'));
       setSelectedTime(null);
@@ -211,7 +235,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || t('bookingError'));
+        throw new Error(data.error || data.message || t('bookingError'));
       }
 
       
@@ -267,7 +291,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
   const symptoms = symptomsBySpeciality[doctor.speciality] || [];
 
   const isSlotBooked = (time: string) => {
-    const isBooked = !availableSlots.includes(time);
+    const isBooked = !availableSlots.includes(time) || (patientBusySlots[formattedDate] || []).includes(time);
 
     const now = new Date();
     const isToday = format(now, 'yyyy-MM-dd') === formattedDate;
@@ -335,6 +359,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
             onTimeSelect={setSelectedTime}
             selectedTime={selectedTime}
             isSlotBooked={isSlotBooked}
+            isPatientBusySlot={(time) => (patientBusySlots[formattedDate] || []).includes(time)}
           />
 
           {(selectedDateIsBlocked || !hasFreeSlot) && (

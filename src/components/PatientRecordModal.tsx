@@ -36,6 +36,15 @@ interface MedicalAttachment {
   uploadedAt: string;
 }
 
+interface PatientRecordAuditEntry {
+  _id: string;
+  action: 'record_created' | 'record_updated' | 'attachment_uploaded' | 'attachment_deleted';
+  changedFields: string[];
+  attachmentName?: string | null;
+  createdAt: string;
+  actorId?: { firstName?: string; lastName?: string };
+}
+
 interface PrescriptionItem {
   name: string;
   dosage: string;
@@ -153,8 +162,9 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
   const [availableFollowUpSlots, setAvailableFollowUpSlots] = useState<Record<string, string[]>>({});
   const [isLoadingFollowUpSlots, setIsLoadingFollowUpSlots] = useState(false);
   const [doctorDocumentProfile, setDoctorDocumentProfile] = useState<Record<string, string | undefined> | null>(null);
-  const [patientProfile, setPatientProfile] = useState<{ firstName: string; lastName: string } | null>(null);
+  const [patientProfile, setPatientProfile] = useState<{ firstName: string; lastName: string; dateOfBirth?: string | null } | null>(null);
   const [attachments, setAttachments] = useState<MedicalAttachment[]>([]);
+  const [auditHistory, setAuditHistory] = useState<PatientRecordAuditEntry[]>([]);
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
   const selectedAppointment = useMemo(
@@ -194,14 +204,21 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
       return;
     }
 
-    const doctor = doctorDocumentProfile || user?.data || user;
+    const doctor = (doctorDocumentProfile || user?.data || user) as Record<string, any>;
     const doctorName = [doctor?.firstName, doctor?.lastName].filter(Boolean).join(' ') || t('doctor');
     const doctorContact = [doctor?.hospitalName, doctor?.address, doctor?.phoneNumber, doctor?.professionalRegistrationNumber ? `${t('professionalRegistrationNumber')}: ${doctor.professionalRegistrationNumber}` : ''].filter(Boolean);
     const customDocumentHeader = typeof doctor?.documentHeader === 'string' ? doctor.documentHeader.trim() : '';
     const customDocumentFooter = typeof doctor?.documentFooter === 'string' ? doctor.documentFooter.trim() : '';
     const printedPatientFirstName = patientProfile?.firstName || patientName.split(' ').slice(0, -1).join(' ') || patientName;
     const printedPatientLastName = patientProfile?.lastName || patientName.split(' ').slice(-1)[0] || '';
-    const dateLabel = format(new Date(selectedAppointment?.date || appointment.date), 'dd/MM/yyyy', { locale: fr });
+    const consultationDate = new Date(selectedAppointment?.date || appointment.date);
+    const dateLabel = format(consultationDate, 'dd/MM/yyyy', { locale: fr });
+    const birthDate = patientProfile?.dateOfBirth ? new Date(patientProfile.dateOfBirth) : null;
+    let patientAge: number | null = null;
+    if (birthDate && !Number.isNaN(birthDate.getTime()) && birthDate <= consultationDate) {
+      patientAge = consultationDate.getFullYear() - birthDate.getFullYear();
+      if (consultationDate.getMonth() < birthDate.getMonth() || (consultationDate.getMonth() === birthDate.getMonth() && consultationDate.getDate() < birthDate.getDate())) patientAge -= 1;
+    }
     const titleByType: Record<PrintableDocument, string> = {
       prescription: t('medicalPrescription'), certificate: t('medicalCertificate'),
       referral: t('referralLetter'), summary: t('consultationSummary'), attendance: t('attendanceCertificate'),
@@ -219,16 +236,20 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
       return;
     }
     const medicalEmblem = `<svg viewBox="0 0 180 180" aria-hidden="true"><path d="M90 21v130" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><path d="M90 32c-18-3-33-1-50-11 5 12 15 20 34 21M90 32c18-3 33-1 50-11-5 12-15 20-34 21" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M90 57c-24 0-26 24 0 31s24 30 0 31-24 23 0 30" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M90 57c24 0 26 24 0 31s-24 30 0 31 24 23 0 30" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><circle cx="90" cy="15" r="7" fill="currentColor"/></svg>`;
+    const logoMimeType = doctor?.doctorLogoMimeType;
+    const doctorLogo = doctor?.doctorLogo && (logoMimeType === 'image/png' || logoMimeType === 'image/jpeg')
+      ? `<img class="rx-logo" src="data:${logoMimeType};base64,${doctor.doctorLogo}" alt="${escapeHtml(t('doctorLogo'))}">`
+      : medicalEmblem;
     const prescriptionMarkup = `<main class="rx-sheet">
       <header class="rx-header">
         <section class="doctor-side doctor-left"><strong>${t('doctor')} ${escapeHtml(doctorName)}</strong><div>${escapeHtml(doctor?.speciality || '')}</div>${doctor?.phoneNumber ? `<div>${t('phoneNumber')}: ${escapeHtml(doctor.phoneNumber)}</div>` : ''}${doctor?.email ? `<div>${t('email')}: ${escapeHtml(doctor.email)}</div>` : ''}</section>
-        <div class="rx-emblem">${medicalEmblem}</div>
+        <div class="rx-emblem">${doctorLogo}</div>
         <section class="doctor-side doctor-right" dir="rtl"><strong>الدكتور ${escapeHtml(doctorName)}</strong><div>التخصص ${escapeHtml(doctor?.speciality || '')}</div>${doctor?.phoneNumber ? `<div>الهاتف: ${escapeHtml(doctor.phoneNumber)}</div>` : ''}${doctor?.email ? `<div>${t('email')}: ${escapeHtml(doctor.email)}</div>` : ''}</section>
       </header>
       ${doctor?.hospitalName || doctor?.address || doctor?.professionalRegistrationNumber ? `<div class="clinic-line">${[doctor?.hospitalName, doctor?.address, doctor?.professionalRegistrationNumber ? `${t('professionalRegistrationNumber')}: ${doctor.professionalRegistrationNumber}` : ''].filter(Boolean).map((item) => `<span>${escapeHtml(item)}</span>`).join('<span class="separator">·</span>')}</div>` : ''}
       <div class="blue-rule"></div>
       ${customDocumentHeader ? `<p class="custom-head">${escapeHtml(customDocumentHeader)}</p>` : ''}
-      <section class="patient-info"><p><strong>${t('date')} :</strong> ${dateLabel}</p><div class="patient-fields"><span><strong>${t('lastName')} :</strong> ${escapeHtml(printedPatientLastName)}</span><span><strong>${t('firstName')} :</strong> ${escapeHtml(printedPatientFirstName)}</span><span><strong>${t('age')} :</strong> ______</span></div></section>
+      <section class="patient-info"><p><strong>${t('date')} :</strong> ${dateLabel}</p><div class="patient-fields"><span><strong>${t('lastName')} :</strong> ${escapeHtml(printedPatientLastName)}</span><span><strong>${t('firstName')} :</strong> ${escapeHtml(printedPatientFirstName)}</span><span><strong>${t('age')} :</strong> ${patientAge === null ? '—' : `${patientAge} ${t('yearsOld')}`}</span></div></section>
       <h1>${escapeHtml(t('medicalPrescription'))}</h1>
       <section class="rx-body"><div class="watermark">${medicalEmblem}</div><div class="rx-content"><h2>${t('prescription')}</h2><ol>${currentPrescriptions.map((item) => `<li><strong>${escapeHtml(item.name)}</strong><div class="med-details">${item.dosage ? `<span><b>${t('dosage')}:</b> ${escapeHtml(displayPrescriptionValue(item.dosage, t))}</span>` : ''}${item.route ? `<span><b>${t('routeOfAdministration')}:</b> ${escapeHtml(displayPrescriptionValue(item.route, t))}</span>` : ''}${item.frequency ? `<span><b>${t('frequency')}:</b> ${escapeHtml(displayPrescriptionValue(item.frequency, t))}</span>` : ''}${item.duration ? `<span><b>${t('duration')}:</b> ${escapeHtml(displayPrescriptionValue(item.duration, t))}</span>` : ''}${item.quantity ? `<span><b>${t('quantity')}:</b> ${escapeHtml(item.quantity)}</span>` : ''}${item.instructions ? `<span><b>${t('instructions')}:</b> ${escapeHtml(item.instructions)}</span>` : ''}</div></li>`).join('')}</ol>${treatment.trim() ? `<h2>${t('recommendations')}</h2><p>${escapeHtml(treatment).replace(/\n/g, '<br>')}</p>` : ''}</div></section>
       ${customDocumentFooter ? `<div class="custom-footer">${escapeHtml(customDocumentFooter)}</div>` : ''}
@@ -237,7 +258,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
     const genericMarkup = `<main class="sheet"><header class="top"><div><strong>${t('doctor')} ${escapeHtml(doctorName)}</strong><div class="muted">${escapeHtml(doctor?.speciality || '')}</div>${doctorContact.map((line) => `<div class="contact">${escapeHtml(line)}</div>`).join('')}${customDocumentHeader ? `<p class="custom-head">${escapeHtml(customDocumentHeader)}</p>` : ''}</div><div>${t('date')}: ${dateLabel}</div></header><h1>${escapeHtml(titleByType[type])}</h1><p><strong>${t('patient')} :</strong> ${escapeHtml(patientName)}</p><p><strong>${t('date')} :</strong> ${dateLabel}</p><section class="body">${contentByType[type]}</section>${customDocumentFooter ? `<p class="custom-footer">${escapeHtml(customDocumentFooter)}</p>` : ''}<p class="notice">${t('printSignatureNotice')}</p><div class="signature"><div class="sign">${t('doctor')} · ${t('signatureAndStamp')}</div></div></main>`;
     printWindow.document.open();
     printWindow.document.write(`<!doctype html><html lang="${escapeHtml(document.documentElement.lang || 'fr')}"><head><meta charset="utf-8"><title>${escapeHtml(titleByType[type])} - ${escapeHtml(patientName)}</title><style>
-      @page{size:A4;margin:12mm}*{box-sizing:border-box}body{font:15px/1.5 Arial,sans-serif;color:#172b3a;margin:0;padding:28px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.sheet{max-width:760px;margin:0 auto}.top{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #222;padding-bottom:18px}.muted{color:#555}.contact{font-size:12px;color:#444;margin-top:3px}.custom-head{font-weight:600;margin:14px 0 0;white-space:pre-line}.body{min-height:300px;padding:24px 0}.custom-footer{font-size:13px;white-space:pre-line;margin-top:20px}.notice{font-size:12px;color:#555;border:1px solid #aaa;padding:10px;margin-top:24px}.signature{display:flex;justify-content:flex-end;margin-top:70px}.sign{width:240px;border-top:1px solid #555;padding-top:8px;text-align:center}h1{font-size:24px}h2{font-size:17px;margin-top:24px}li{margin:8px 0}.rx-sheet{position:relative;display:flex;flex-direction:column;max-width:760px;min-height:270mm;margin:0 auto;padding:10px 20px;color:#176eaa}.rx-header{display:grid;grid-template-columns:minmax(0,1fr) 90px minmax(0,1fr);align-items:center;gap:16px;padding:8px 0 20px}.doctor-side{font-size:13px;line-height:1.8}.doctor-side strong{display:block;font-size:17px;margin-bottom:4px}.doctor-right{text-align:right}.rx-emblem{width:82px;height:82px;color:#1677b8}.rx-emblem svg{width:100%;height:100%}.clinic-line{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;color:#176eaa;font-size:12px;padding:8px 0}.separator{color:#62a6d2}.blue-rule{height:2px;background:#287ab2;width:100%}.rx-sheet .custom-head{margin:10px 0 0;text-align:center;color:#287ab2}.patient-info{padding:14px 0 6px;color:#176eaa}.patient-info p{margin:2px 0 10px}.patient-fields{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:16px}.rx-sheet h1{text-align:center;text-decoration:underline;font-size:22px;color:#1677b8;margin:12px 0 18px}.rx-body{position:relative;flex:1;min-height:100mm;padding:15px 10px}.watermark{position:absolute;inset:15% 0 auto;display:flex;justify-content:center;color:#c8f4f4;opacity:.55;pointer-events:none}.watermark svg{width:min(65%,380px);height:auto}.rx-content{position:relative;z-index:1;color:#172b3a}.rx-content h2{margin:6px 0 14px;color:#176eaa}.rx-content ol{padding-left:28px}.rx-content li{padding:8px 0 14px 4px}.med-details{display:grid;grid-template-columns:1fr 1fr;gap:3px 18px;margin:6px 0 0;font-size:13px}.rx-footer{margin-top:auto;color:#176eaa;text-align:center}.rx-footer p{margin:10px 0 4px;font-size:12px}.rx-footer small{display:block;color:#687d8b;font-size:10px;margin-top:9px}.rx-footer .signature{justify-content:flex-end;color:#334b5b;font-size:12px;margin:32px 8px 0}.custom-footer{color:#176eaa;text-align:center;white-space:pre-line;margin:12px 0}@media print{body{padding:0}.sheet{max-width:none;margin:20mm auto}.rx-sheet{max-width:none;min-height:273mm;margin:0;padding:0}.rx-body{min-height:0}}
+      @page{size:A4;margin:12mm}*{box-sizing:border-box}body{font:15px/1.5 Arial,sans-serif;color:#172b3a;margin:0;padding:28px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.sheet{max-width:760px;margin:0 auto}.top{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #222;padding-bottom:18px}.muted{color:#555}.contact{font-size:12px;color:#444;margin-top:3px}.custom-head{font-weight:600;margin:14px 0 0;white-space:pre-line}.body{min-height:300px;padding:24px 0}.custom-footer{font-size:13px;white-space:pre-line;margin-top:20px}.notice{font-size:12px;color:#555;border:1px solid #aaa;padding:10px;margin-top:24px}.signature{display:flex;justify-content:flex-end;margin-top:70px}.sign{width:240px;border-top:1px solid #555;padding-top:8px;text-align:center}h1{font-size:24px}h2{font-size:17px;margin-top:24px}li{margin:8px 0}.rx-sheet{position:relative;display:flex;flex-direction:column;max-width:760px;min-height:270mm;margin:0 auto;padding:10px 20px;color:#176eaa}.rx-header{display:grid;grid-template-columns:minmax(0,1fr) 90px minmax(0,1fr);align-items:center;gap:16px;padding:8px 0 20px}.doctor-side{font-size:13px;line-height:1.8}.doctor-side strong{display:block;font-size:17px;margin-bottom:4px}.doctor-right{text-align:right}.rx-emblem{width:82px;height:82px;color:#1677b8}.rx-emblem svg,.rx-logo{width:100%;height:100%}.rx-logo{object-fit:contain}.clinic-line{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;color:#176eaa;font-size:12px;padding:8px 0}.separator{color:#62a6d2}.blue-rule{height:2px;background:#287ab2;width:100%}.rx-sheet .custom-head{margin:10px 0 0;text-align:center;color:#287ab2}.patient-info{padding:14px 0 6px;color:#176eaa}.patient-info p{margin:2px 0 10px}.patient-fields{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:16px}.rx-sheet h1{text-align:center;text-decoration:underline;font-size:22px;color:#1677b8;margin:12px 0 18px}.rx-body{position:relative;flex:1;min-height:100mm;padding:15px 10px}.watermark{position:absolute;inset:15% 0 auto;display:flex;justify-content:center;color:#c8f4f4;opacity:.55;pointer-events:none}.watermark svg{width:min(65%,380px);height:auto}.rx-content{position:relative;z-index:1;color:#172b3a}.rx-content h2{margin:6px 0 14px;color:#176eaa}.rx-content ol{padding-left:28px}.rx-content li{padding:8px 0 14px 4px}.med-details{display:grid;grid-template-columns:1fr 1fr;gap:3px 18px;margin:6px 0 0;font-size:13px}.rx-footer{margin-top:auto;color:#176eaa;text-align:center}.rx-footer p{margin:10px 0 4px;font-size:12px}.rx-footer small{display:block;color:#687d8b;font-size:10px;margin-top:9px}.rx-footer .signature{justify-content:flex-end;color:#334b5b;font-size:12px;margin:32px 8px 0}.custom-footer{color:#176eaa;text-align:center;white-space:pre-line;margin:12px 0}@media print{body{padding:0}.sheet{max-width:none;margin:20mm auto}.rx-sheet{max-width:none;min-height:273mm;margin:0;padding:0}.rx-body{min-height:0}}
     </style></head><body>${type === 'prescription' ? prescriptionMarkup : genericMarkup}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
     printWindow.document.close();
   };
@@ -256,7 +277,8 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
         if (!active) return;
         const record = data.record;
         setAttachments(record?.attachments || []);
-        setPatientProfile(data.patient ? { firstName: data.patient.firstName || '', lastName: data.patient.lastName || '' } : null);
+        setAuditHistory(Array.isArray(data.auditHistory) ? data.auditHistory : []);
+        setPatientProfile(data.patient ? { firstName: data.patient.firstName || '', lastName: data.patient.lastName || '', dateOfBirth: data.patient.dateOfBirth || null } : null);
         const entries: ConsultationEntry[] = record?.consultations || [];
         setAppointments((data.appointments || []).filter((item: RecordAppointment) => ['accepted', 'completed'].includes(item.status)));
         setConsultations(entries);
@@ -486,6 +508,30 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
               <label className="text-sm font-medium md:col-span-2">{t('currentMedications')}
                 <textarea value={currentMedications} onChange={(event) => setCurrentMedications(event.target.value)} rows={2} className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950" placeholder={t('currentMedicationsPlaceholder')} />
               </label>
+            </section>
+
+            <section className="border-t pt-5">
+              <h3 className="flex items-center gap-2 font-semibold"><ClipboardList className="h-5 w-5 text-indigo-600" />{t('patientRecordAuditHistory')}</h3>
+              <p className="mt-1 text-xs text-slate-500">{t('patientRecordAuditHelp')}</p>
+              {auditHistory.length ? <ol className="mt-3 space-y-2">
+                {auditHistory.map((entry) => {
+                  const actionKey: Record<PatientRecordAuditEntry['action'], string> = {
+                    record_created: 'auditRecordCreated', record_updated: 'auditRecordUpdated',
+                    attachment_uploaded: 'auditAttachmentUploaded', attachment_deleted: 'auditAttachmentDeleted',
+                  };
+                  const fieldKeys: Record<string, string> = {
+                    allergies: 'allergies', medicalHistory: 'medicalHistory', currentMedications: 'currentMedications',
+                    'consultation.diagnosis': 'diagnosis', 'consultation.treatment': 'treatmentRecommendations',
+                    'consultation.prescriptions': 'prescription', 'consultation.notes': 'notes', 'consultation.followUpAt': 'followUpRecommended',
+                  };
+                  const changedLabels = entry.changedFields.map((field) => t(fieldKeys[field] || field));
+                  return <li key={entry._id} className="rounded-xl border border-slate-200 px-3 py-2.5 dark:border-slate-700">
+                    <div className="flex flex-wrap items-start justify-between gap-2"><p className="text-sm font-medium">{t(actionKey[entry.action])}{entry.attachmentName ? ` · ${entry.attachmentName}` : ''}</p><time className="shrink-0 text-xs text-slate-500">{format(new Date(entry.createdAt), 'dd/MM/yyyy HH:mm')}</time></div>
+                    <p className="mt-1 text-xs text-slate-500">{entry.actorId ? `${entry.actorId.firstName || ''} ${entry.actorId.lastName || ''}`.trim() : t('doctor')}</p>
+                    {changedLabels.length > 0 && <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{t('auditChangedFields')}: {changedLabels.join(' · ')}</p>}
+                  </li>;
+                })}
+              </ol> : <p className="mt-3 rounded-xl border border-dashed p-4 text-sm text-slate-500 dark:border-slate-700">{t('noPatientRecordAudit')}</p>}
             </section>
 
             <section className="border-t pt-5">

@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from "../lib/api";
-import { format, addDays, isWithinInterval, parseISO, parse, formatDistanceToNow, isBefore, isAfter, addMinutes } from 'date-fns';
+import { format, addDays, isWithinInterval, parse, formatDistanceToNow, isBefore, isAfter, addMinutes } from 'date-fns';
 import { ar, fr } from 'date-fns/locale';
 import {
   Calendar as CalendarIcon,
@@ -31,6 +31,16 @@ interface ExtendedAppointment extends Appointment {
   createdAt?: string;
   cancellationReason?: string | null;
   isFollowUp?: boolean;
+  cancelledAt?: string | null;
+}
+
+interface OperationalOverview {
+  pendingCount: number;
+  pendingAppointments: ExtendedAppointment[];
+  recentCancellationCount: number;
+  recentCancellations: ExtendedAppointment[];
+  incompleteCount: number;
+  incompleteAppointments: ExtendedAppointment[];
 }
 
 export function DoctorDashboard() {
@@ -43,6 +53,7 @@ export function DoctorDashboard() {
   const [historicAppointments, setHistoricAppointments] = useState<ExtendedAppointment[]>([]);
   const [availability, setAvailability] = useState<{ [date: string]: string[] }>({});
   const [availableSlotsIn14Days, setAvailableSlotsIn14Days] = useState(0);
+  const [operationalOverview, setOperationalOverview] = useState<OperationalOverview>({ pendingCount: 0, pendingAppointments: [], recentCancellationCount: 0, recentCancellations: [], incompleteCount: 0, incompleteAppointments: [] });
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isTeleconsultationModalOpen, setIsTeleconsultationModalOpen] = useState(false);
   const [selectedAppointment, setSelectedAppointment] = useState<ExtendedAppointment | null>(null);
@@ -52,9 +63,6 @@ export function DoctorDashboard() {
   const [isPatientSearchOpen, setIsPatientSearchOpen] = useState(false);
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
   const [appointmentFilter, setAppointmentFilter] = useState<'all' | 'pending'>('all');
-  const today = new Date();
-  const futureDate = addDays(today, 14);
-
   // State for timers
   const [timers, setTimers] = useState<{ [key: string]: string | null }>({});
 
@@ -71,9 +79,11 @@ export function DoctorDashboard() {
         throw new Error(t('errorDoctorIdNotFound'));
       }
 
-      const startOfWeek = new Date(today.setHours(0, 0, 0, 0));
-      const endOfWeek = new Date(today);
-      endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
+      const now = new Date();
+      const startOfWeek = new Date(now);
+      startOfWeek.setHours(0, 0, 0, 0);
+      const endOfWeek = new Date(startOfWeek);
+      endOfWeek.setDate(startOfWeek.getDate() + (7 - startOfWeek.getDay()));
 
       const response = await apiFetch(
         `http://localhost:3000/api/appointments/doctor/${doctorId}`,
@@ -159,26 +169,47 @@ export function DoctorDashboard() {
       setAvailability(cleanedAvailability);
       setRequiresConfirmation(data.requiresConfirmation);
 
-      let slotsCount = 0;
-      const currentTime = format(today, 'HH:mm');
-      Object.entries(cleanedAvailability).forEach(([date, times]) => {
-        const dateObj = parseISO(date);
-        if (isWithinInterval(dateObj, { start: today, end: futureDate })) {
-          const validTimes =
-            date === format(today, 'yyyy-MM-dd')
-              ? times.filter((time) => time > currentTime)
-              : times;
-          slotsCount += validTimes.length;
-        }
-      });
-
-      setAvailableSlotsIn14Days(slotsCount);
     } catch (error) {
       
       toast.error(t('errorLoadAvailability'));
       setAvailability({});
     }
   };
+
+  const fetchOperationalOverview = async () => {
+    try {
+      const doctorId = user?.data?.id;
+      if (!doctorId) return;
+      const response = await apiFetch(`http://localhost:3000/api/appointments/doctor/${doctorId}/operational-overview`);
+      if (!response.ok) throw new Error('operational overview request failed');
+      const data = await response.json();
+      setOperationalOverview({
+        pendingCount: Number(data.pendingCount) || 0,
+        pendingAppointments: Array.isArray(data.pendingAppointments) ? data.pendingAppointments : [],
+        recentCancellationCount: Number(data.recentCancellationCount) || 0,
+        recentCancellations: Array.isArray(data.recentCancellations) ? data.recentCancellations : [],
+        incompleteCount: Number(data.incompleteCount) || 0,
+        incompleteAppointments: Array.isArray(data.incompleteAppointments) ? data.incompleteAppointments : [],
+      });
+    } catch {
+      setOperationalOverview({ pendingCount: 0, pendingAppointments: [], recentCancellationCount: 0, recentCancellations: [], incompleteCount: 0, incompleteAppointments: [] });
+    }
+  };
+
+  useEffect(() => {
+    const occupiedSlots = new Set(allAppointments
+      .filter((item) => ['pending', 'accepted'].includes(item.status))
+      .map((item) => `${format(new Date(item.date), 'yyyy-MM-dd')}T${item.time}`));
+    const now = new Date();
+    const lastDay = addDays(now, 14);
+    const todayKey = format(now, 'yyyy-MM-dd');
+    const currentTime = format(now, 'HH:mm');
+    const freeSlotCount = Object.entries(availability).reduce((count, [date, times]) => {
+      if (date < todayKey || date > format(lastDay, 'yyyy-MM-dd')) return count;
+      return count + times.filter((time) => (date !== todayKey || time > currentTime) && !occupiedSlots.has(`${date}T${time}`)).length;
+    }, 0);
+    setAvailableSlotsIn14Days(freeSlotCount);
+  }, [availability, allAppointments]);
 
   const updateAppointmentStatus = async (
     appointmentId: string,
@@ -249,6 +280,7 @@ export function DoctorDashboard() {
       }
 
       toast.success(t(status === 'accepted' ? 'appointmentAccepted' : appointmentToRefuse ? 'appointmentRefused' : 'appointmentCancelled'));
+      void fetchOperationalOverview();
     } catch (error) {
       
       toast.error(t('errorTryAgain'));
@@ -319,6 +351,7 @@ export function DoctorDashboard() {
         prevAppointments.filter((apt) => apt._id !== appointmentId)
       );
       toast.success(t('appointmentCompleted'));
+      void fetchOperationalOverview();
     } catch (error) {
       
       toast.error(t('errorTryAgain'));
@@ -414,9 +447,14 @@ export function DoctorDashboard() {
   useEffect(() => {
     fetchAppointments();
     fetchAvailability();
+    fetchOperationalOverview();
 
     const intervalId = window.setInterval(fetchAppointments, 5000);
-    return () => window.clearInterval(intervalId);
+    const overviewIntervalId = window.setInterval(fetchOperationalOverview, 30000);
+    return () => {
+      window.clearInterval(intervalId);
+      window.clearInterval(overviewIntervalId);
+    };
   }, []);
 
   return (
@@ -441,7 +479,7 @@ export function DoctorDashboard() {
           </div>
         </motion.header>
 
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             <div className="group rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">
               <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-500 dark:text-slate-400">
                 <CalendarIcon className="w-5 h-5" />
@@ -472,7 +510,61 @@ export function DoctorDashboard() {
               </div>
               <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('next14Days')}</p>
             </div>
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 shadow-sm dark:border-amber-900 dark:bg-amber-950/30">
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200"><Clock className="h-5 w-5" />{t('pendingRequests')}</h2>
+              <div className="text-3xl font-bold text-slate-900 dark:text-white">{operationalOverview.pendingCount}</div>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t('awaitingYourDecision')}</p>
+            </div>
+            <div className={`rounded-2xl border p-5 shadow-sm ${operationalOverview.incompleteCount ? 'border-orange-200 bg-orange-50 dark:border-orange-900 dark:bg-orange-950/30' : 'border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900'}`}>
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-slate-600 dark:text-slate-300"><FileText className="h-5 w-5 text-orange-600" />{t('consultationsToComplete')}</h2>
+              <div className="text-3xl font-bold text-slate-900 dark:text-white">{operationalOverview.incompleteCount}</div>
+              <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t('completedWithoutRecord')}</p>
+            </div>
+            <div className="rounded-2xl border border-violet-200 bg-violet-50 p-5 shadow-sm dark:border-violet-900 dark:bg-violet-950/30">
+              <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-violet-800 dark:text-violet-200"><XCircle className="h-5 w-5" />{t('recentCancellations')}</h2>
+              <div className="text-3xl font-bold text-slate-900 dark:text-white">{operationalOverview.recentCancellationCount}</div>
+              <p className="mt-1 text-sm text-slate-600 dark:text-slate-300">{t('last7Days')}</p>
+            </div>
         </div>
+
+        <section className="grid gap-4 xl:grid-cols-3">
+          <div className="rounded-2xl border border-amber-200 bg-white p-5 shadow-sm dark:border-amber-900/70 dark:bg-slate-900">
+            <h2 className="mb-4 flex items-center gap-2 font-semibold text-slate-900 dark:text-white"><Clock className="h-5 w-5 text-amber-600" />{t('pendingRequests')}</h2>
+            {operationalOverview.pendingAppointments.length ? <div className="space-y-3">
+              {operationalOverview.pendingAppointments.slice(0, 4).map((item) => <article key={item._id} className="rounded-xl bg-amber-50/70 p-3 dark:bg-amber-950/20">
+                <p className="font-medium text-slate-900 dark:text-white">{item.patientId?.firstName || t('nameNotAvailable')} {item.patientId?.lastName || ''}</p>
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{format(new Date(item.date), 'dd/MM/yyyy')} · {item.time}</p>
+                <div className="mt-2 flex gap-2">
+                  <button type="button" onClick={() => void updateAppointmentStatus(item._id, 'accepted')} className="rounded-lg bg-emerald-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-emerald-700">{t('accept')}</button>
+                  <button type="button" onClick={() => setAppointmentToRefuse(item)} className="rounded-lg border border-red-200 px-3 py-1.5 text-xs font-semibold text-red-700 hover:bg-red-50 dark:border-red-900 dark:text-red-300 dark:hover:bg-red-950/30">{t('refuseAppointment')}</button>
+                </div>
+              </article>)}
+              {operationalOverview.pendingCount > 4 && <p className="text-xs text-slate-500">{t('moreRequestsWaiting', { count: operationalOverview.pendingCount - 4 })}</p>}
+            </div> : <p className="rounded-xl border border-dashed p-4 text-sm text-slate-500 dark:border-slate-700">{t('noPendingRequests')}</p>}
+          </div>
+
+          <div className="rounded-2xl border border-orange-200 bg-white p-5 shadow-sm dark:border-orange-900/70 dark:bg-slate-900">
+            <h2 className="mb-4 flex items-center gap-2 font-semibold text-slate-900 dark:text-white"><FileText className="h-5 w-5 text-orange-600" />{t('consultationsToComplete')}</h2>
+            {operationalOverview.incompleteAppointments.length ? <div className="space-y-3">
+              {operationalOverview.incompleteAppointments.slice(0, 4).map((item) => <article key={item._id} className="flex items-center justify-between gap-3 rounded-xl bg-orange-50/70 p-3 dark:bg-orange-950/20">
+                <div className="min-w-0"><p className="truncate font-medium text-slate-900 dark:text-white">{item.patientId?.firstName || t('nameNotAvailable')} {item.patientId?.lastName || ''}</p><p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{format(new Date(item.date), 'dd/MM/yyyy')} · {item.time}</p></div>
+                <button type="button" disabled={!item.patientId?._id} onClick={() => setPatientRecordAppointment(item)} className="shrink-0 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{t('completeDetails')}</button>
+              </article>)}
+              {operationalOverview.incompleteCount > 4 && <p className="text-xs text-slate-500">{t('moreIncompleteConsultations', { count: operationalOverview.incompleteCount - 4 })}</p>}
+            </div> : <p className="rounded-xl border border-dashed p-4 text-sm text-slate-500 dark:border-slate-700">{t('noIncompleteConsultations')}</p>}
+          </div>
+
+          <div className="rounded-2xl border border-violet-200 bg-white p-5 shadow-sm dark:border-violet-900/70 dark:bg-slate-900">
+            <h2 className="mb-4 flex items-center gap-2 font-semibold text-slate-900 dark:text-white"><XCircle className="h-5 w-5 text-violet-600" />{t('recentCancellations')}</h2>
+            {operationalOverview.recentCancellations.length ? <div className="space-y-3">
+              {operationalOverview.recentCancellations.slice(0, 4).map((item) => <article key={item._id} className="rounded-xl bg-violet-50/70 p-3 dark:bg-violet-950/20">
+                <div className="flex items-start justify-between gap-2"><p className="font-medium text-slate-900 dark:text-white">{item.patientId?.firstName || t('nameNotAvailable')} {item.patientId?.lastName || ''}</p><span className="shrink-0 text-xs text-slate-500">{item.cancelledAt ? format(new Date(item.cancelledAt), 'dd/MM HH:mm') : ''}</span></div>
+                <p className="mt-1 text-xs text-slate-600 dark:text-slate-300">{format(new Date(item.date), 'dd/MM/yyyy')} · {item.time}</p>
+                {item.cancellationReason && <p className="mt-1 line-clamp-2 text-xs text-slate-500 dark:text-slate-400">{item.cancellationReason}</p>}
+              </article>)}
+            </div> : <p className="rounded-xl border border-dashed p-4 text-sm text-slate-500 dark:border-slate-700">{t('noRecentCancellations')}</p>}
+          </div>
+        </section>
 
         <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900 sm:p-6">
           <h2 className="mb-4 flex items-center gap-2 text-lg font-semibold text-slate-900 dark:text-white">
@@ -749,6 +841,7 @@ export function DoctorDashboard() {
           patientId={(patientRecordAppointment.patientId as any)._id}
           patientName={`${(patientRecordAppointment.patientId as any).firstName || ''} ${(patientRecordAppointment.patientId as any).lastName || ''}`.trim() || 'Patient'}
           appointment={patientRecordAppointment}
+          onSaved={() => { void fetchOperationalOverview(); }}
         />
       )}
       <PatientSearchModal

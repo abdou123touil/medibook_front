@@ -60,6 +60,7 @@ interface PatientClinicalRecord {
   allergies?: string;
   medicalHistory?: string;
   currentMedications?: string;
+  attachments?: Array<{ _id: string; fileName: string; size: number; uploadedAt: string }>;
   updatedAt?: string;
   consultations: Array<{
     appointmentId: string;
@@ -242,7 +243,7 @@ const PatientDashboard = () => {
 
   const medicalHistoryRecords = patientRecords.flatMap((record) => {
     const doctor = `Dr. ${record.doctorId?.firstName || ''} ${record.doctorId?.lastName || ''}`.trim();
-    const profileEntry = (record.allergies || record.medicalHistory || record.currentMedications) ? [{
+    const profileEntry = (record.allergies || record.medicalHistory || record.currentMedications || record.attachments?.length) ? [{
       id: `record-${record.doctorId?._id || doctor}`,
       date: record.updatedAt ? format(new Date(record.updatedAt), 'dd/MM/yyyy') : '',
       type: 'consultation' as const,
@@ -252,6 +253,11 @@ const PatientDashboard = () => {
         record.medicalHistory && `Antécédents : ${record.medicalHistory}`,
         record.currentMedications && `Traitements actuels : ${record.currentMedications}`,
       ].filter(Boolean).join('\n'),
+      documents: (record.attachments || []).map((attachment) => ({
+        attachmentId: attachment._id,
+        doctorId: record.doctorId?._id || '',
+        fileName: attachment.fileName,
+      })),
     }] : [];
     const visits = (record.consultations || []).map((consultation) => ({
       id: String(consultation.appointmentId),
@@ -347,6 +353,27 @@ const PatientDashboard = () => {
     doc.save("patient_stats.pdf");
   };
 
+  const handleExportPersonalData = async () => {
+    try {
+      const response = await apiFetch('http://localhost:3000/api/patients/me/export');
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || t('personalDataExportError'));
+      }
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `medibook-export-${format(new Date(), 'yyyy-MM-dd')}.json`;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      toast.success(t('personalDataExported'));
+    } catch (error) {
+      toast.error((error as Error).message || t('personalDataExportError'));
+    }
+  };
+
   const openTeleconsultation = (appointment: Appointment) => {
     if (appointment.status !== "accepted") {
       toast.error(t("appointmentNotAccepted"));
@@ -418,6 +445,12 @@ const PatientDashboard = () => {
           >
             <Download className="h-4 w-4" />
             {t("exportPDF")}
+          </button>
+          <button
+            onClick={() => void handleExportPersonalData()}
+            className="inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/25 bg-white/10 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/20 focus:outline-none focus:ring-2 focus:ring-white/70"
+          >
+            <Download className="h-4 w-4" />{t('exportMyData')}
           </button>
           <button
             onClick={() => navigate('/client')}

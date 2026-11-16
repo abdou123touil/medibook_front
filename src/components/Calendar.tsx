@@ -11,6 +11,7 @@ interface CalendarProps {
   onTimeSelect: (time: string) => void;
   selectedTime: string | null;
   isSlotBooked?: (time: string) => boolean; // Optional prop to check booked slots
+  isPatientBusySlot?: (time: string) => boolean;
   blockedPeriods?: { startDate: string; endDate: string }[];
 }
 
@@ -21,6 +22,7 @@ export function Calendar({
   onTimeSelect,
   selectedTime,
   isSlotBooked = () => false, // Default to false if not provided
+  isPatientBusySlot = () => false,
   blockedPeriods = [],
 }: CalendarProps) {
   const { t, i18n } = useTranslation();
@@ -96,11 +98,13 @@ export function Calendar({
           <div className="grid grid-cols-4 gap-2 ">
             {availableSlots.map((time) => {
               const unavailable = isSlotBooked(time) || isSlotInPast(time);
+              const patientConflict = isPatientBusySlot(time);
               return (
               <button
                 key={time}
                 onClick={() => onTimeSelect(time)}
                 disabled={unavailable}
+                title={patientConflict ? t('appointmentTimeConflict') : undefined}
                 className={clsx(
                   'p-2 rounded-xl text-sm font-medium transition-colors',
                   unavailable

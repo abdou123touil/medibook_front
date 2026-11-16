@@ -3,7 +3,7 @@ import { apiFetch } from "../lib/api";
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { UserCircle, MapPin, Briefcase, Lock, FileText } from 'lucide-react';
+import { UserCircle, MapPin, Briefcase, Lock, FileText, Bell } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
@@ -14,6 +14,7 @@ interface UserProfile {
   lastName: string;
   email: string;
   phoneNumber: string;
+  dateOfBirth?: string;
   address: string;
   role: 'client' | 'doctor';
   speciality?: string;
@@ -22,9 +23,14 @@ interface UserProfile {
   documentHeader?: string;
   documentFooter?: string;
   profileImage?: string;
+  doctorLogo?: string | null;
+  doctorLogoMimeType?: string | null;
   lat?: number;
   lng?: number;
+  reminderPreferences?: { inAppEnabled: boolean; emailEnabled: boolean; before24h: boolean; before2h: boolean };
 }
+
+const defaultReminderPreferences = { inAppEnabled: true, emailEnabled: true, before24h: true, before2h: true };
 
 const specialities = [
   'Cardiologie',
@@ -62,6 +68,8 @@ const MapClickHandler: React.FC<{ onClick: (lat: number, lng: number) => void }>
 export function Profile() {
   const { t } = useTranslation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
+  const [reminderPreferences, setReminderPreferences] = useState(defaultReminderPreferences);
+  const [savingReminderPreferences, setSavingReminderPreferences] = useState(false);
   const [spes, setSpes] = useState<string[]>(specialities);
   const [passwordData, setPasswordData] = useState({
     newPassword: '',
@@ -74,6 +82,7 @@ export function Profile() {
     lastName: '',
     email: '',
     phoneNumber: '',
+    dateOfBirth: '',
     address: '',
     speciality: '',
     hospitalName: '',
@@ -81,6 +90,8 @@ export function Profile() {
     documentHeader: '',
     documentFooter: '',
     profileImage: null as File | null,
+    doctorLogo: null as File | null,
+    doctorLogoPreview: '',
     lat: defaultCenter.lat,
     lng: defaultCenter.lng,
   });
@@ -106,11 +117,13 @@ export function Profile() {
         
         setSpes(data.specialities || []);
         setProfile(data);
+        setReminderPreferences({ ...defaultReminderPreferences, ...(data.reminderPreferences || {}) });
         setFormData({
           firstName: data.firstName,
           lastName: data.lastName,
           email: data.email,
           phoneNumber: data.phoneNumber,
+          dateOfBirth: data.dateOfBirth ? new Date(data.dateOfBirth).toISOString().slice(0, 10) : '',
           address: data.address,
           speciality: data.speciality || '',
           hospitalName: data.hospitalName || '',
@@ -118,6 +131,8 @@ export function Profile() {
           documentHeader: data.documentHeader || '',
           documentFooter: data.documentFooter || '',
           profileImage: null,
+          doctorLogo: null,
+          doctorLogoPreview: data.doctorLogo ? `data:${data.doctorLogoMimeType || 'image/png'};base64,${data.doctorLogo}` : '',
           lat: data.location?.lat || defaultCenter.lat,
           lng: data.location?.lng || defaultCenter.lng,
         });
@@ -168,6 +183,17 @@ export function Profile() {
     if (e.target.files && e.target.files[0]) {
       setFormData(prev => ({ ...prev, profileImage: e.target.files![0] }));
     }
+  };
+
+  const handleDoctorLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (!['image/png', 'image/jpeg'].includes(file.type) || file.size > 2 * 1024 * 1024) {
+      toast.error(t(file.size > 2 * 1024 * 1024 ? 'imageTooLarge' : 'invalidImage'));
+      e.target.value = '';
+      return;
+    }
+    setFormData((current) => ({ ...current, doctorLogo: file, doctorLogoPreview: URL.createObjectURL(file) }));
   };
 
   // Handle map click to update lat/lng
@@ -226,6 +252,16 @@ export function Profile() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    const compactPhone = formData.phoneNumber.trim().replace(/[\s().-]/g, '');
+    if (!/^\+?\d{8,15}$/.test(compactPhone)) {
+      toast.error(t('phoneValidation'));
+      return;
+    }
+    if (profile?.role === 'client' && (!formData.dateOfBirth || formData.dateOfBirth > new Date().toISOString().slice(0, 10))) {
+      toast.error(t('birthDateValidation'));
+      return;
+    }
+
     // Check if password fields are filled
     if (passwordData.newPassword || passwordData.confirmNewPassword) {
       if (!isPasswordVerified) {
@@ -242,6 +278,7 @@ export function Profile() {
       formDataToSend.append('lastName', formData.lastName);
       formDataToSend.append('email', formData.email);
       formDataToSend.append('phoneNumber', formData.phoneNumber);
+      if (profile?.role === 'client') formDataToSend.append('dateOfBirth', formData.dateOfBirth);
       formDataToSend.append('address', formData.address);
       formDataToSend.append('lat', formData.lat.toString());
       formDataToSend.append('lng', formData.lng.toString());
@@ -255,6 +292,7 @@ export function Profile() {
       if (formData.profileImage) {
         formDataToSend.append('profileImage', formData.profileImage);
       }
+      if (profile?.role === 'doctor' && formData.doctorLogo) formDataToSend.append('doctorLogo', formData.doctorLogo);
 
       
 
@@ -279,6 +317,25 @@ export function Profile() {
       toast.error((error as Error).message || t('errorTryAgain'));
     } finally {
       setLoading(false);
+    }
+  };
+
+  const saveReminderPreferences = async () => {
+    setSavingReminderPreferences(true);
+    try {
+      const response = await apiFetch('http://localhost:3000/api/users/reminder-preferences', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ reminderPreferences }),
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || t('reminderPreferencesSaveError'));
+      setReminderPreferences({ ...defaultReminderPreferences, ...data.reminderPreferences });
+      toast.success(t('reminderPreferencesSaved'));
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setSavingReminderPreferences(false);
     }
   };
 
@@ -395,6 +452,10 @@ export function Profile() {
                   className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
                 />
               </div>
+              {profile.role === 'client' && <div className="md:col-span-2">
+                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('dateOfBirth')}</label>
+                <input type="date" name="dateOfBirth" max={new Date().toISOString().slice(0, 10)} value={formData.dateOfBirth} onChange={handleInputChange} required className="mt-1 block w-full rounded-lg border border-gray-300 bg-white px-3 py-2 text-gray-900 shadow-sm focus:border-indigo-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100" />
+              </div>}
             </div>
           </div>
 
@@ -506,6 +567,11 @@ export function Profile() {
               <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5 dark:border-indigo-900 dark:bg-indigo-950/20">
                 <h3 className="mb-1 flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100"><FileText className="h-5 w-5 text-indigo-600" />{t('documentCustomization')}</h3>
                 <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">{t('documentCustomizationHelp')}</p>
+                <label className="mb-4 flex cursor-pointer items-center gap-3 rounded-xl border border-dashed border-indigo-200 p-3 text-sm dark:border-indigo-900">
+                  {formData.doctorLogoPreview ? <img src={formData.doctorLogoPreview} alt={t('doctorLogo')} className="h-14 w-20 object-contain" /> : <FileText className="h-8 w-8 text-indigo-600" />}
+                  <span>{t('doctorLogoOptional')}</span>
+                  <input type="file" accept="image/png,image/jpeg" onChange={handleDoctorLogoChange} className="sr-only" />
+                </label>
                 <div className="grid gap-4 md:grid-cols-2">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('professionalRegistrationNumber')}</label>
@@ -525,6 +591,26 @@ export function Profile() {
           )}
 
           {/* Security Section */}
+          {profile.role === 'client' && (
+            <section className="space-y-4 border-b border-gray-200 pb-6 dark:border-gray-700">
+              <div>
+                <h2 className="flex items-center gap-2 text-xl font-semibold text-gray-900 dark:text-gray-100"><Bell className="h-6 w-6 text-indigo-600" />{t('reminderPreferences')}</h2>
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{t('reminderPreferencesHelp')}</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-2">
+                {(['inAppEnabled', 'emailEnabled', 'before24h', 'before2h'] as const).map((field) => (
+                  <label key={field} className="flex cursor-pointer items-start gap-3 rounded-xl border border-gray-200 p-4 dark:border-gray-700">
+                    <input type="checkbox" checked={reminderPreferences[field]} onChange={(event) => setReminderPreferences((current) => ({ ...current, [field]: event.target.checked }))} className="mt-1 h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500" />
+                    <span className="text-sm font-medium text-gray-800 dark:text-gray-100">{t(`reminderPreference_${field}`)}</span>
+                  </label>
+                ))}
+              </div>
+              <div className="flex justify-end">
+                <button type="button" onClick={() => void saveReminderPreferences()} disabled={savingReminderPreferences} className="rounded-xl bg-indigo-600 px-5 py-2.5 font-semibold text-white hover:bg-indigo-700 disabled:opacity-50">{savingReminderPreferences ? t('saving') : t('saveReminderPreferences')}</button>
+              </div>
+            </section>
+          )}
+
           <div className="pb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-4">
               <Lock className="w-6 h-6 text-indigo-600" />

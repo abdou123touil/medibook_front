@@ -7,7 +7,7 @@ import { Map } from "../components/Map";
 import { useAuthStore } from "../store/auth";
 import { apiFetch } from "../lib/api";
 
-type ImageField = "profileImage" | "cinFront" | "cinBack";
+type ImageField = "profileImage" | "cinFront" | "cinBack" | "doctorLogo";
 const initialLocation = { lat: 33.5731, lng: -7.5898 };
 
 export function ProfileCompletion() {
@@ -20,9 +20,10 @@ export function ProfileCompletion() {
   const [locationSelected, setLocationSelected] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [form, setForm] = useState({
-    firstName: "", lastName: "", cinNumber: "", address: "", speciality: "", hospital: "",
+    firstName: "", lastName: "", cinNumber: "", phoneNumber: "", dateOfBirth: "", address: "", speciality: "", hospital: "",
     location: initialLocation,
     profileImage: null as File | null, profilePreview: "",
+    doctorLogo: null as File | null, doctorLogoPreview: "",
     cinFront: null as File | null, cinFrontPreview: "",
     cinBack: null as File | null, cinBackPreview: "",
   });
@@ -33,7 +34,7 @@ export function ProfileCompletion() {
   const handleFile = (event: React.ChangeEvent<HTMLInputElement>, field: ImageField) => {
     const file = event.target.files?.[0];
     if (!file) return;
-    if (!file.type.startsWith("image/")) {
+    if (field === "doctorLogo" ? !["image/png", "image/jpeg"].includes(file.type) : !file.type.startsWith("image/")) {
       toast.error(t("invalidImage"));
       event.target.value = "";
       return;
@@ -53,6 +54,9 @@ export function ProfileCompletion() {
       if (form.firstName.trim().length < 2) nextErrors.firstName = t('firstNameValidation');
       if (form.lastName.trim().length < 2) nextErrors.lastName = t('lastNameValidation');
       if (form.cinNumber.trim().length < 4) nextErrors.cinNumber = t('cinValidation');
+      const compactPhone = form.phoneNumber.trim().replace(/[\s().-]/g, '');
+      if (!/^\+?\d{8,15}$/.test(compactPhone)) nextErrors.phoneNumber = t('phoneValidation');
+      if (role === 'client' && (!form.dateOfBirth || form.dateOfBirth > new Date().toISOString().slice(0, 10))) nextErrors.dateOfBirth = t('birthDateValidation');
     } else if (step === 2) {
       if (form.address.trim().length < 5) nextErrors.address = t('addressValidation');
     } else {
@@ -83,6 +87,8 @@ export function ProfileCompletion() {
       body.append("firstName", form.firstName.trim());
       body.append("lastName", form.lastName.trim());
       body.append("cinNumber", form.cinNumber.trim());
+      body.append("phoneNumber", form.phoneNumber.trim());
+      if (role === 'client') body.append("dateOfBirth", form.dateOfBirth);
       body.append("address", form.address.trim());
       body.append("lat", String(form.location.lat));
       body.append("lng", String(form.location.lng));
@@ -90,6 +96,7 @@ export function ProfileCompletion() {
       body.append("password", registration.password);
       body.append("role", role);
       if (form.profileImage) body.append("profileImage", form.profileImage);
+      if (role === 'doctor' && form.doctorLogo) body.append("doctorLogo", form.doctorLogo);
       if (form.cinFront) body.append("cinFront", form.cinFront);
       if (form.cinBack) body.append("cinBack", form.cinBack);
       if (role === "doctor") {
@@ -158,6 +165,14 @@ export function ProfileCompletion() {
               <input value={form.cinNumber} onChange={(e) => update("cinNumber", e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-gray-900" />
               {errors.cinNumber && <span className="text-red-600">{errors.cinNumber}</span>}
             </label>
+            <label className="block text-sm font-medium">{t('phoneNumber')} *
+              <input type="tel" autoComplete="tel" inputMode="tel" value={form.phoneNumber} onChange={(e) => update('phoneNumber', e.target.value)} placeholder={t('phoneNumberPlaceholder')} className="mt-1 w-full rounded-lg border px-3 py-2 text-gray-900" />
+              {errors.phoneNumber && <span className="text-red-600">{errors.phoneNumber}</span>}
+            </label>
+            {role === 'client' && <label className="block text-sm font-medium">{t('dateOfBirth')} *
+              <input type="date" max={new Date().toISOString().slice(0, 10)} autoComplete="bday" value={form.dateOfBirth} onChange={(e) => update('dateOfBirth', e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-gray-900" />
+              {errors.dateOfBirth && <span className="text-red-600">{errors.dateOfBirth}</span>}
+            </label>}
             <label className="flex cursor-pointer items-center gap-3 rounded-lg border p-3 text-sm">
               {form.profilePreview ? <img src={form.profilePreview} alt="Aperçu du profil" className="h-12 w-12 rounded-full object-cover" /> : <User className="h-8 w-8" />}
               <span><Upload className="mr-1 inline h-4 w-4" />{t("profilePhotoOptional")}</span>
@@ -189,6 +204,11 @@ export function ProfileCompletion() {
           </div>}
 
           {step === 3 && role === "doctor" && <div className="space-y-4">
+            <label className="flex cursor-pointer items-center gap-3 rounded-lg border border-dashed p-3 text-sm">
+              {form.doctorLogoPreview ? <img src={form.doctorLogoPreview} alt={t('doctorLogo')} className="h-14 w-14 object-contain" /> : <Building className="h-8 w-8 text-indigo-600" />}
+              <span><Upload className="mr-1 inline h-4 w-4" />{t('doctorLogoOptional')}</span>
+              <input type="file" accept="image/png,image/jpeg" className="sr-only" onChange={(e) => handleFile(e, 'doctorLogo')} />
+            </label>
             <label className="block text-sm font-medium">{t("specialty")}
               <select value={form.speciality} onChange={(e) => update("speciality", e.target.value)} className="mt-1 w-full rounded-lg border px-3 py-2 text-gray-900">
                 <option value="">{t("selectSpecialty")}</option>

@@ -1,6 +1,8 @@
 import React from 'react';
 import { FileText, Activity, Pill, AlertCircle } from 'lucide-react';
 import { useTranslation } from 'react-i18next';
+import { apiFetch } from '../lib/api';
+import toast from 'react-hot-toast';
 
 interface MedicalRecord {
   id: string;
@@ -8,7 +10,7 @@ interface MedicalRecord {
   type: 'consultation' | 'prescription' | 'test';
   doctor: string;
   description: string;
-  documents?: string[];
+  documents?: Array<{ attachmentId: string; doctorId: string; fileName: string }>;
   followUpAt?: string;
 }
 
@@ -18,6 +20,22 @@ interface MedicalHistoryProps {
 
 export function MedicalHistory({ records }: MedicalHistoryProps) {
   const { t, i18n } = useTranslation();
+  const downloadAttachment = async (documentInfo: NonNullable<MedicalRecord['documents']>[number]) => {
+    try {
+      const response = await apiFetch(`http://localhost:3000/api/patients/me/attachments/${documentInfo.doctorId}/${documentInfo.attachmentId}`);
+      if (!response.ok) throw new Error(t('medicalAttachmentDownloadError'));
+      const url = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = documentInfo.fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  };
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 dark:bg-slate-900 dark:border-slate-700 dark:text-slate-100">
       <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
@@ -58,15 +76,16 @@ export function MedicalHistory({ records }: MedicalHistoryProps) {
             )}
             {record.documents && record.documents.length > 0 && (
               <div className="flex gap-2 dark:text-slate-100">
-                {record.documents.map((doc, index) => (
-                  <a
-                    key={index}
-                    href="#"
+                {record.documents.map((doc) => (
+                  <button
+                    key={doc.attachmentId}
+                    type="button"
+                    onClick={() => void downloadAttachment(doc)}
                     className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1 dark:text-slate-100"
                   >
                     <FileText className="w-4 h-4" />
-                    {t('documentNumber', { number: index + 1 })}
-                  </a>
+                    {doc.fileName}
+                  </button>
                 ))}
               </div>
             )}
