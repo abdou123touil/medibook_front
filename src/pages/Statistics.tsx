@@ -615,11 +615,13 @@ useEffect(() => {
         isOpen={isModalOpen}
         onClose={closeHistoricModal}
         appointments={historicAppointments}
+        onDetailsSaved={() => { void loadStats(); }}
       />
       <AppointmentHistoryModal
         isOpen={isDateModalOpen}
         onClose={closeDateModal}
         appointments={selectedDateAppointments}
+        onDetailsSaved={() => { void loadStats(); }}
         title={t('appointmentsForDate', { date: selectedDateAppointments[0]?.date ? format(parseISO(selectedDateAppointments[0].date), 'dd MMM yyyy', { locale: dateLocale }) : '' })}
       />
     </div>

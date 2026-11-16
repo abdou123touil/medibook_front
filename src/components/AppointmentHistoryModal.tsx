@@ -27,12 +27,16 @@ interface AppointmentHistoryModalProps {
   isOpen: boolean;
   onClose: () => void;
   appointments: Appointment[];
+  title?: string;
+  onDetailsSaved?: (appointmentId: string) => void;
 }
 
 export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = ({
   isOpen,
   onClose,
   appointments,
+  title,
+  onDetailsSaved,
 }) => {
   const { t } = useTranslation();
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
@@ -46,47 +50,79 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
   const [appointmentDetails, setAppointmentDetails] = useState<{
     [key: string]: AppointmentDetails;
   }>({});
+  const [isLoadingAppointmentDetails, setIsLoadingAppointmentDetails] = useState(false);
+  const [medicationSuggestions, setMedicationSuggestions] = useState<string[]>([]);
+  const [isSearchingMedications, setIsSearchingMedications] = useState(false);
+
+  const orderedAppointments = [...appointments].sort((a, b) => {
+    const aIncomplete = a.status === 'completed' && !appointmentDetails[a._id];
+    const bIncomplete = b.status === 'completed' && !appointmentDetails[b._id];
+    if (aIncomplete !== bIncomplete) return aIncomplete ? -1 : 1;
+    return new Date(b.date).getTime() - new Date(a.date).getTime();
+  });
 
   // Fetch existing appointment details when modal opens
   useEffect(() => {
-    if (isOpen) {
-      const fetchDetails = async () => {
+    if (!isOpen) return;
+    let cancelled = false;
+    const fetchDetails = async () => {
+      setIsLoadingAppointmentDetails(true);
+      const entries = await Promise.all(appointments.map(async (appointment) => {
         try {
-          for (const appointment of appointments) {
-            try {
-              const response = await apiFetch(
-                `http://localhost:3000/api/appointments/appointment-details/${appointment._id}`,
-                {
-                  headers: {
-                  },
-                }
-              );
-
-              if (response.ok) {
-                const data = await response.json();
-                
-                setAppointmentDetails((prev) => ({
-                  ...prev,
-                  [appointment._id]: data.appointmentDetail,
-                }));
-              } else if (response.status === 404) {
-                // Pas de détails pour ce rendez-vous, continuer sans erreur
-                
-              } else {
-                
-              }
-            } catch (error) {
-              
-            }
-          }
-        } catch (error) {
-          
-          toast.error(t('appointmentDetailsLoadError'));
+          const response = await apiFetch(
+            `http://localhost:3000/api/appointments/appointment-details/${appointment._id}`
+          );
+          if (!response.ok) return null;
+          const data = await response.json();
+          return [appointment._id, data.appointmentDetail] as const;
+        } catch {
+          return null;
         }
-      };
-      fetchDetails();
-    }
+      }));
+      if (!cancelled) {
+        setAppointmentDetails((previous) => {
+          const next = { ...previous };
+          appointments.forEach(({ _id }) => { delete next[_id]; });
+          entries.forEach((entry) => {
+            if (entry) next[entry[0]] = entry[1];
+          });
+          return next;
+        });
+        setIsLoadingAppointmentDetails(false);
+      }
+    };
+    fetchDetails();
+    return () => { cancelled = true; };
   }, [isOpen, appointments]);
+
+  useEffect(() => {
+    const query = currentMedicament.trim();
+    if (!isOpen || query.length < 2) {
+      setMedicationSuggestions([]);
+      setIsSearchingMedications(false);
+      return;
+    }
+    const controller = new AbortController();
+    const timeout = window.setTimeout(async () => {
+      setIsSearchingMedications(true);
+      try {
+        const response = await apiFetch(
+          `http://localhost:3000/api/medications/search?q=${encodeURIComponent(query)}`,
+          { signal: controller.signal }
+        );
+        const data = response.ok ? await response.json() : { results: [] };
+        setMedicationSuggestions(Array.isArray(data.results) ? data.results : []);
+      } catch (error) {
+        if ((error as Error).name !== 'AbortError') setMedicationSuggestions([]);
+      } finally {
+        if (!controller.signal.aborted) setIsSearchingMedications(false);
+      }
+    }, 300);
+    return () => {
+      window.clearTimeout(timeout);
+      controller.abort();
+    };
+  }, [currentMedicament, isOpen]);
 
   // Handle form input changes
   const handleInputChange = (
@@ -102,12 +138,27 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
   // Handle adding a medicament
   const handleAddMedicament = () => {
     if (currentMedicament.trim()) {
+      const medication = currentMedicament.trim();
       setDetails((prev) => ({
         ...prev,
-        medicaments: [...prev.medicaments, currentMedicament.trim()],
+        medicaments: prev.medicaments.some((item) => item.toLocaleLowerCase() === medication.toLocaleLowerCase())
+          ? prev.medicaments
+          : [...prev.medicaments, medication],
       }));
       setCurrentMedicament('');
+      setMedicationSuggestions([]);
     }
+  };
+
+  const selectMedication = (medication: string) => {
+    setDetails((prev) => ({
+      ...prev,
+      medicaments: prev.medicaments.some((item) => item.toLocaleLowerCase() === medication.toLocaleLowerCase())
+        ? prev.medicaments
+        : [...prev.medicaments, medication],
+    }));
+    setCurrentMedicament('');
+    setMedicationSuggestions([]);
   };
 
   // Handle removing a medicament
@@ -158,6 +209,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
       }));
       setDetails({ tarif: 0, medicaments: [], cause: '' });
       setSelectedAppointment(null);
+      onDetailsSaved?.(appointmentId);
       toast.success(t('appointmentDetailsSaved'));
     } catch (error) {
       
@@ -191,7 +243,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
             </button>
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center gap-2">
               <Clock className="w-6 h-6 text-indigo-600" />
-              {t('appointmentHistory')}
+              {title || t('appointmentHistory')}
             </h2>
 
             <div className="space-y-4">
@@ -199,8 +251,10 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                 <p className="text-gray-500 dark:text-gray-400 text-center dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ">
                   {t('noAppointmentsFound')}
                 </p>
+              ) : isLoadingAppointmentDetails ? (
+                <p className="text-gray-500 dark:text-gray-400 text-center py-6">{t('loading')}</p>
               ) : (
-                appointments.map((appointment) => (
+                orderedAppointments.map((appointment) => (
                   <div
                     key={appointment._id}
                     className={`rounded-lg p-4 shadow-sm border dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ${
@@ -313,12 +367,14 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
                               {t('medications')}
                             </label>
-                            <div className="flex gap-2">
+                            <div className="relative flex gap-2">
                               <input
                                 type="text"
                                 value={currentMedicament}
                                 onChange={(e) => setCurrentMedicament(e.target.value)}
-                              placeholder={t('addMedication')}
+                                onKeyDown={(event) => { if (event.key === 'Enter') { event.preventDefault(); handleAddMedicament(); } }}
+                                placeholder={t('searchMedication')}
+                                autoComplete="off"
                                 className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
                               />
                               <button
@@ -328,7 +384,18 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                               >
                                 <Pill className="w-5 h-5" />
                               </button>
+                              {(isSearchingMedications || medicationSuggestions.length > 0) && (
+                                <div className="absolute left-0 right-14 top-full z-20 mt-1 max-h-48 overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg dark:border-gray-600 dark:bg-gray-800">
+                                  {isSearchingMedications && <p className="px-3 py-2 text-sm text-gray-500">{t('searchingMedications')}</p>}
+                                  {medicationSuggestions.map((suggestion) => (
+                                    <button key={suggestion} type="button" onClick={() => selectMedication(suggestion)} className="block w-full px-3 py-2 text-left text-sm text-gray-800 hover:bg-indigo-50 dark:text-gray-100 dark:hover:bg-gray-700">
+                                      {suggestion}
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                             </div>
+                            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t('medicationCatalogDisclaimer')}</p>
                             <ul className="mt-2 space-y-1">
                               {details.medicaments.map((med, index) => (
                                 <li

@@ -46,6 +46,7 @@ interface Appointment {
   time: string;
   status: string;
   isTeleconsultation: boolean;
+  isFollowUp?: boolean;
   teleconsultation?: { jitsiUrl: string; status: string };
   doctorId: { _id?: string; firstName: string; lastName: string; speciality: string };
   cancellationReason?: string | null;
@@ -66,6 +67,7 @@ interface PatientClinicalRecord {
     treatment: string;
     prescriptions: string[];
     notes: string;
+    followUpAt?: string | null;
   }>;
 }
 
@@ -228,6 +230,8 @@ const PatientDashboard = () => {
       fetchAppointments();
       fetchPatientRecords();
     }
+    const appointmentsRefreshId = userId ? window.setInterval(fetchAppointments, 5000) : undefined;
+    return () => { if (appointmentsRefreshId) window.clearInterval(appointmentsRefreshId); };
   }, [userId, timeRange, statusFilter, dateRange, isCustomDate, t]);
 
   const medicalHistoryRecords = patientRecords.flatMap((record) => {
@@ -248,6 +252,7 @@ const PatientDashboard = () => {
       date: format(new Date(consultation.consultationDate), 'dd/MM/yyyy'),
       type: 'consultation' as const,
       doctor,
+      followUpAt: consultation.followUpAt || undefined,
       description: [
         consultation.symptoms && `Motif : ${consultation.symptoms}`,
         consultation.diagnosis && `Diagnostic : ${consultation.diagnosis}`,
@@ -543,6 +548,7 @@ const PatientDashboard = () => {
                         <p className="text-gray-800 dark:text-gray-100">
                           Dr. {appointment.doctorId.lastName} ({appointment.doctorId.speciality}) - {t(appointment.status)}
                         </p>
+                        {appointment.isFollowUp && <span className="mt-2 inline-flex rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100">{t('followUpAppointment')}</span>}
                         {appointment.isTeleconsultation && appointment.status === "accepted" && (
                           <p className="text-sm text-indigo-600 dark:text-indigo-400 mt-1">
                             {timers[appointment._id] || t("consultationEnded")}

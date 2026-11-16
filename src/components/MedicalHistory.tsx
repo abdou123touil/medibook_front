@@ -9,6 +9,7 @@ interface MedicalRecord {
   doctor: string;
   description: string;
   documents?: string[];
+  followUpAt?: string;
 }
 
 interface MedicalHistoryProps {
@@ -16,7 +17,7 @@ interface MedicalHistoryProps {
 }
 
 export function MedicalHistory({ records }: MedicalHistoryProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
       <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
@@ -50,6 +51,11 @@ export function MedicalHistory({ records }: MedicalHistoryProps) {
             <p className="text-gray-600 mb-2 whitespace-pre-line dark:text-gray-100">
               {record.description || t('noDetailsAdded')}
             </p>
+            {record.followUpAt && (
+              <p className="mt-2 rounded-md bg-indigo-50 px-3 py-2 text-sm text-indigo-800 dark:bg-indigo-900/30 dark:text-indigo-200">
+                {t('followUpRecommended')}: {new Intl.DateTimeFormat(i18n.language, { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(record.followUpAt))}
+              </p>
+            )}
             {record.documents && record.documents.length > 0 && (
               <div className="flex gap-2 dark:text-gray-100">
                 {record.documents.map((doc, index) => (

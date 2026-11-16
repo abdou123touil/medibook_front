@@ -29,6 +29,7 @@ interface ExtendedAppointment extends Appointment {
   teleconsultation?: { jitsiUrl: string; status: string };
   createdAt?: string;
   cancellationReason?: string | null;
+  isFollowUp?: boolean;
 }
 
 export function DoctorDashboard() {
@@ -36,6 +37,7 @@ export function DoctorDashboard() {
   const location = useLocation();
   const { user, isAuthenticated } = useAuthStore();
   const [appointments, setAppointments] = useState<ExtendedAppointment[]>([]);
+  const [followUpAppointments, setFollowUpAppointments] = useState<ExtendedAppointment[]>([]);
   const [allAppointments, setAllAppointments] = useState<ExtendedAppointment[]>([]);
   const [historicAppointments, setHistoricAppointments] = useState<ExtendedAppointment[]>([]);
   const [availability, setAvailability] = useState<{ [date: string]: string[] }>({});
@@ -95,9 +97,12 @@ export function DoctorDashboard() {
 
       const upcomingAppointments = data.appointments.filter((apt: ExtendedAppointment) => {
         const aptDate = new Date(apt.date);
-        return ['pending', 'accepted'].includes(apt.status)
+        return !apt.isFollowUp && ['pending', 'accepted'].includes(apt.status)
           && isWithinInterval(aptDate, { start: startOfWeek, end: endOfWeek });
       });
+      setFollowUpAppointments(data.appointments.filter((apt: ExtendedAppointment) =>
+        apt.isFollowUp && apt.status === 'accepted' && new Date(apt.date) >= new Date(new Date().setHours(0, 0, 0, 0))
+      ));
 
       const historicFiltered = data.appointments.filter(
         (apt: ExtendedAppointment) => apt.status === 'completed' || apt.status === 'cancelled'
@@ -110,6 +115,7 @@ export function DoctorDashboard() {
       
       toast.error(t('errorLoadAppointments'));
       setAppointments([]);
+      setFollowUpAppointments([]);
       setAllAppointments([]);
       setHistoricAppointments([]);
     }
@@ -488,6 +494,26 @@ export function DoctorDashboard() {
 
         <div className="grid lg:grid-cols-2 gap-8">
           <div>
+            {followUpAppointments.length > 0 && (
+              <section className="mb-8 rounded-xl border border-indigo-200 bg-indigo-50 p-5 dark:border-indigo-900 dark:bg-indigo-950/30">
+                <h2 className="mb-4 text-xl font-semibold text-indigo-900 dark:text-indigo-100">{t('followUpAppointments')}</h2>
+                <div className="space-y-3">
+                  {[...followUpAppointments].sort((a, b) => {
+                    const dateA = new Date(`${format(new Date(a.date), 'yyyy-MM-dd')}T${a.time}`);
+                    const dateB = new Date(`${format(new Date(b.date), 'yyyy-MM-dd')}T${b.time}`);
+                    return dateA.getTime() - dateB.getTime();
+                  }).map((followUp) => (
+                    <article key={followUp._id} className="rounded-lg bg-white p-4 shadow-sm dark:bg-gray-900">
+                      <p className="font-medium">{followUp.patientId?.firstName || t('nameNotAvailable')} {followUp.patientId?.lastName || ''}</p>
+                      <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">{format(new Date(followUp.date), 'PPP', { locale: i18n.language === 'fr' ? fr : undefined })} · {followUp.time}</p>
+                      <span className="mt-2 inline-flex rounded-full bg-indigo-100 px-2.5 py-1 text-xs font-semibold text-indigo-800 dark:bg-indigo-900 dark:text-indigo-100">{t('followUpAppointment')}</span>
+                      <button type="button" onClick={() => setPatientRecordAppointment(followUp)} className="ml-3 text-sm font-medium text-indigo-700 hover:underline dark:text-indigo-300">{t('openPatientRecord')}</button>
+                      <button type="button" onClick={() => completeAppointment(followUp._id)} className="ml-3 text-sm font-medium text-green-700 hover:underline dark:text-green-300">{t('complete')}</button>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
             <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
               <h2 className="text-xl font-semibold">{t('upcomingAppointments')}</h2>
               <div className="flex gap-2" role="group" aria-label={t('filterAppointments')}>
