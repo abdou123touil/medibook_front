@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Search, X, UserRound } from 'lucide-react';
+import { Search, X, UserRound, SlidersHorizontal } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useTranslation } from 'react-i18next';
@@ -31,6 +31,9 @@ interface PatientSearchModalProps {
 export function PatientSearchModal({ isOpen, onClose, appointments, onSelectPatient }: PatientSearchModalProps) {
   const { t, i18n } = useTranslation();
   const [search, setSearch] = useState('');
+  const [dateFilter, setDateFilter] = useState('all');
+  const [visitFilter, setVisitFilter] = useState('all');
+  const [sortBy, setSortBy] = useState('latest');
 
   const patients = useMemo(() => {
     const patientsById = new Map<string, PatientSearchResult>();
@@ -54,15 +57,27 @@ export function PatientSearchModal({ isOpen, onClose, appointments, onSelectPati
         appointment,
       });
     }
-    return [...patientsById.values()].sort((a, b) =>
-      `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, 'fr')
-    );
+    return [...patientsById.values()];
   }, [appointments]);
 
   const normalizedSearch = search.trim().toLocaleLowerCase(i18n.language);
-  const filteredPatients = patients.filter((patient) =>
-    `${patient.firstName} ${patient.lastName}`.toLocaleLowerCase(i18n.language).includes(normalizedSearch)
-  );
+  const filteredPatients = patients
+    .filter((patient) => {
+      const searchableText = `${patient.firstName} ${patient.lastName} ${patient.appointment.symptoms || ''}`
+        .toLocaleLowerCase(i18n.language);
+      const visitDate = new Date(patient.appointment.date).getTime();
+      const ageInDays = (Date.now() - visitDate) / 86400000;
+      const matchesDate = dateFilter === 'all' || (Number.isFinite(ageInDays) && ageInDays <= Number(dateFilter));
+      const matchesVisits = visitFilter === 'all' ||
+        (visitFilter === 'repeat' ? patient.consultationCount >= 2 : patient.consultationCount === 1);
+      return searchableText.includes(normalizedSearch) && matchesDate && matchesVisits;
+    })
+    .sort((a, b) => {
+      if (sortBy === 'oldest') return new Date(a.appointment.date).getTime() - new Date(b.appointment.date).getTime();
+      if (sortBy === 'visits') return b.consultationCount - a.consultationCount || new Date(b.appointment.date).getTime() - new Date(a.appointment.date).getTime();
+      if (sortBy === 'name') return `${a.lastName} ${a.firstName}`.localeCompare(`${b.lastName} ${b.firstName}`, i18n.language);
+      return new Date(b.appointment.date).getTime() - new Date(a.appointment.date).getTime();
+    });
 
   if (!isOpen) return null;
 
@@ -84,6 +99,35 @@ export function PatientSearchModal({ isOpen, onClose, appointments, onSelectPati
               className="w-full rounded-xl border border-slate-200 bg-slate-50 py-3 pl-10 pr-3 text-slate-900 outline-none transition focus:border-indigo-500 focus:ring-4 focus:ring-indigo-500/10 dark:border-slate-700 dark:bg-slate-950 dark:text-white"
             />
           </label>
+          <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-3">
+            <label className="text-xs font-medium text-slate-500">
+              {t('patientSearchDateFilter')}
+              <select value={dateFilter} onChange={(event) => setDateFilter(event.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                <option value="all">{t('patientSearchAnyDate')}</option>
+                <option value="30">{t('patientSearchLast30Days')}</option>
+                <option value="90">{t('patientSearchLast90Days')}</option>
+                <option value="365">{t('patientSearchLastYear')}</option>
+              </select>
+            </label>
+            <label className="text-xs font-medium text-slate-500">
+              {t('patientSearchVisitFilter')}
+              <select value={visitFilter} onChange={(event) => setVisitFilter(event.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                <option value="all">{t('patientSearchAllPatients')}</option>
+                <option value="repeat">{t('patientSearchRepeatPatients')}</option>
+                <option value="single">{t('patientSearchSingleVisit')}</option>
+              </select>
+            </label>
+            <label className="text-xs font-medium text-slate-500">
+              {t('patientSearchSort')}
+              <select value={sortBy} onChange={(event) => setSortBy(event.target.value)} className="mt-1 block w-full rounded-xl border border-slate-200 bg-white px-3 py-2.5 text-sm text-slate-800 outline-none focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-950 dark:text-white">
+                <option value="latest">{t('patientSearchNewestFirst')}</option>
+                <option value="oldest">{t('patientSearchOldestFirst')}</option>
+                <option value="visits">{t('patientSearchMostVisits')}</option>
+                <option value="name">{t('patientSearchNameAZ')}</option>
+              </select>
+            </label>
+          </div>
+          <div className="mt-4 flex items-center gap-2 text-xs text-slate-500"><SlidersHorizontal className="h-4 w-4" />{t('patientSearchResultCount', { count: filteredPatients.length })}</div>
           <div className="mt-4 max-h-[55vh] overflow-y-auto space-y-2">
             {filteredPatients.map((patient) => (
               <button

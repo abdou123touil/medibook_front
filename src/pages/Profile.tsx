@@ -3,7 +3,7 @@ import { apiFetch } from "../lib/api";
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
-import { UserCircle, MapPin, Briefcase, Lock } from 'lucide-react';
+import { UserCircle, MapPin, Briefcase, Lock, FileText } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
 import { useTranslation } from 'react-i18next';
@@ -18,6 +18,9 @@ interface UserProfile {
   role: 'client' | 'doctor';
   speciality?: string;
   hospitalName?: string;
+  professionalRegistrationNumber?: string;
+  documentHeader?: string;
+  documentFooter?: string;
   profileImage?: string;
   lat?: number;
   lng?: number;
@@ -74,6 +77,9 @@ export function Profile() {
     address: '',
     speciality: '',
     hospitalName: '',
+    professionalRegistrationNumber: '',
+    documentHeader: '',
+    documentFooter: '',
     profileImage: null as File | null,
     lat: defaultCenter.lat,
     lng: defaultCenter.lng,
@@ -108,6 +114,9 @@ export function Profile() {
           address: data.address,
           speciality: data.speciality || '',
           hospitalName: data.hospitalName || '',
+          professionalRegistrationNumber: data.professionalRegistrationNumber || '',
+          documentHeader: data.documentHeader || '',
+          documentFooter: data.documentFooter || '',
           profileImage: null,
           lat: data.location?.lat || defaultCenter.lat,
           lng: data.location?.lng || defaultCenter.lng,
@@ -148,7 +157,7 @@ export function Profile() {
 
   // Handle input changes
   const handleInputChange = (
-    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>
+    e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement | HTMLTextAreaElement>
   ) => {
     const { name, value } = e.target;
     setFormData(prev => ({ ...prev, [name]: value }));
@@ -239,6 +248,9 @@ export function Profile() {
       if (profile?.role === 'doctor') {
         formDataToSend.append('speciality', formData.speciality);
         formDataToSend.append('hospitalName', formData.hospitalName);
+        formDataToSend.append('professionalRegistrationNumber', formData.professionalRegistrationNumber);
+        formDataToSend.append('documentHeader', formData.documentHeader);
+        formDataToSend.append('documentFooter', formData.documentFooter);
       }
       if (formData.profileImage) {
         formDataToSend.append('profileImage', formData.profileImage);
@@ -454,7 +466,7 @@ export function Profile() {
 
           {/* Speciality Section (Doctors Only) */}
           {profile.role === 'doctor' && (
-            <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
+            <div className="space-y-6 border-b border-gray-200 pb-6 dark:border-gray-700">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-4">
                 <Briefcase className="w-6 h-6 text-indigo-600" />
                 {t('specialty')}
@@ -489,6 +501,24 @@ export function Profile() {
                     onChange={handleInputChange}
                     className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
                   />
+                </div>
+              </div>
+              <div className="rounded-2xl border border-indigo-100 bg-indigo-50/50 p-5 dark:border-indigo-900 dark:bg-indigo-950/20">
+                <h3 className="mb-1 flex items-center gap-2 text-lg font-semibold text-gray-900 dark:text-gray-100"><FileText className="h-5 w-5 text-indigo-600" />{t('documentCustomization')}</h3>
+                <p className="mb-4 text-sm text-gray-600 dark:text-gray-300">{t('documentCustomizationHelp')}</p>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('professionalRegistrationNumber')}</label>
+                    <input type="text" name="professionalRegistrationNumber" maxLength={80} value={formData.professionalRegistrationNumber} onChange={handleInputChange} placeholder={t('professionalRegistrationNumberPlaceholder')} className="mt-1 block w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('documentHeader')}</label>
+                    <input type="text" name="documentHeader" maxLength={160} value={formData.documentHeader} onChange={handleInputChange} placeholder={t('documentHeaderPlaceholder')} className="mt-1 block w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100" />
+                  </div>
+                  <div className="md:col-span-2">
+                    <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">{t('documentFooter')}</label>
+                    <textarea name="documentFooter" maxLength={500} rows={3} value={formData.documentFooter} onChange={handleInputChange} placeholder={t('documentFooterPlaceholder')} className="mt-1 block w-full rounded-xl border border-gray-300 bg-white px-3 py-2.5 text-gray-900 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-800 dark:text-gray-100" />
+                  </div>
                 </div>
               </div>
             </div>

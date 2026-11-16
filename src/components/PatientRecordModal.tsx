@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { apiFetch } from "../lib/api";
-import { X, Save, ClipboardList, Printer, FileText, Pill, Stethoscope, CalendarCheck, Plus, Trash2, Pencil } from 'lucide-react';
+import { X, Save, ClipboardList, Printer, FileText, Pill, Stethoscope, CalendarCheck, Plus, Trash2, Pencil, Paperclip, Upload, Download } from 'lucide-react';
 import { addDays, format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
@@ -26,6 +26,14 @@ interface ConsultationEntry {
   notes: string;
   followUpAt?: string | null;
   followUpAppointmentId?: string | null;
+}
+
+interface MedicalAttachment {
+  _id: string;
+  fileName: string;
+  mimeType: string;
+  size: number;
+  uploadedAt: string;
 }
 
 interface PrescriptionItem {
@@ -144,6 +152,10 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
   const [followUpAt, setFollowUpAt] = useState('');
   const [availableFollowUpSlots, setAvailableFollowUpSlots] = useState<Record<string, string[]>>({});
   const [isLoadingFollowUpSlots, setIsLoadingFollowUpSlots] = useState(false);
+  const [doctorDocumentProfile, setDoctorDocumentProfile] = useState<Record<string, string | undefined> | null>(null);
+  const [patientProfile, setPatientProfile] = useState<{ firstName: string; lastName: string } | null>(null);
+  const [attachments, setAttachments] = useState<MedicalAttachment[]>([]);
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false);
 
   const selectedAppointment = useMemo(
     () => appointments.find((item) => item._id === selectedAppointmentId) || appointment,
@@ -182,8 +194,13 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
       return;
     }
 
-    const doctor = user?.data || user;
+    const doctor = doctorDocumentProfile || user?.data || user;
     const doctorName = [doctor?.firstName, doctor?.lastName].filter(Boolean).join(' ') || t('doctor');
+    const doctorContact = [doctor?.hospitalName, doctor?.address, doctor?.phoneNumber, doctor?.professionalRegistrationNumber ? `${t('professionalRegistrationNumber')}: ${doctor.professionalRegistrationNumber}` : ''].filter(Boolean);
+    const customDocumentHeader = typeof doctor?.documentHeader === 'string' ? doctor.documentHeader.trim() : '';
+    const customDocumentFooter = typeof doctor?.documentFooter === 'string' ? doctor.documentFooter.trim() : '';
+    const printedPatientFirstName = patientProfile?.firstName || patientName.split(' ').slice(0, -1).join(' ') || patientName;
+    const printedPatientLastName = patientProfile?.lastName || patientName.split(' ').slice(-1)[0] || '';
     const dateLabel = format(new Date(selectedAppointment?.date || appointment.date), 'dd/MM/yyyy', { locale: fr });
     const titleByType: Record<PrintableDocument, string> = {
       prescription: t('medicalPrescription'), certificate: t('medicalCertificate'),
@@ -201,10 +218,27 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
       toast.error(t('printPopupBlocked'));
       return;
     }
+    const medicalEmblem = `<svg viewBox="0 0 180 180" aria-hidden="true"><path d="M90 21v130" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round"/><path d="M90 32c-18-3-33-1-50-11 5 12 15 20 34 21M90 32c18-3 33-1 50-11-5 12-15 20-34 21" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-linejoin="round"/><path d="M90 57c-24 0-26 24 0 31s24 30 0 31-24 23 0 30" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><path d="M90 57c24 0 26 24 0 31s-24 30 0 31 24 23 0 30" fill="none" stroke="currentColor" stroke-width="6" stroke-linecap="round"/><circle cx="90" cy="15" r="7" fill="currentColor"/></svg>`;
+    const prescriptionMarkup = `<main class="rx-sheet">
+      <header class="rx-header">
+        <section class="doctor-side doctor-left"><strong>${t('doctor')} ${escapeHtml(doctorName)}</strong><div>${escapeHtml(doctor?.speciality || '')}</div>${doctor?.phoneNumber ? `<div>${t('phoneNumber')}: ${escapeHtml(doctor.phoneNumber)}</div>` : ''}${doctor?.email ? `<div>${t('email')}: ${escapeHtml(doctor.email)}</div>` : ''}</section>
+        <div class="rx-emblem">${medicalEmblem}</div>
+        <section class="doctor-side doctor-right" dir="rtl"><strong>الدكتور ${escapeHtml(doctorName)}</strong><div>التخصص ${escapeHtml(doctor?.speciality || '')}</div>${doctor?.phoneNumber ? `<div>الهاتف: ${escapeHtml(doctor.phoneNumber)}</div>` : ''}${doctor?.email ? `<div>${t('email')}: ${escapeHtml(doctor.email)}</div>` : ''}</section>
+      </header>
+      ${doctor?.hospitalName || doctor?.address || doctor?.professionalRegistrationNumber ? `<div class="clinic-line">${[doctor?.hospitalName, doctor?.address, doctor?.professionalRegistrationNumber ? `${t('professionalRegistrationNumber')}: ${doctor.professionalRegistrationNumber}` : ''].filter(Boolean).map((item) => `<span>${escapeHtml(item)}</span>`).join('<span class="separator">·</span>')}</div>` : ''}
+      <div class="blue-rule"></div>
+      ${customDocumentHeader ? `<p class="custom-head">${escapeHtml(customDocumentHeader)}</p>` : ''}
+      <section class="patient-info"><p><strong>${t('date')} :</strong> ${dateLabel}</p><div class="patient-fields"><span><strong>${t('lastName')} :</strong> ${escapeHtml(printedPatientLastName)}</span><span><strong>${t('firstName')} :</strong> ${escapeHtml(printedPatientFirstName)}</span><span><strong>${t('age')} :</strong> ______</span></div></section>
+      <h1>${escapeHtml(t('medicalPrescription'))}</h1>
+      <section class="rx-body"><div class="watermark">${medicalEmblem}</div><div class="rx-content"><h2>${t('prescription')}</h2><ol>${currentPrescriptions.map((item) => `<li><strong>${escapeHtml(item.name)}</strong><div class="med-details">${item.dosage ? `<span><b>${t('dosage')}:</b> ${escapeHtml(displayPrescriptionValue(item.dosage, t))}</span>` : ''}${item.route ? `<span><b>${t('routeOfAdministration')}:</b> ${escapeHtml(displayPrescriptionValue(item.route, t))}</span>` : ''}${item.frequency ? `<span><b>${t('frequency')}:</b> ${escapeHtml(displayPrescriptionValue(item.frequency, t))}</span>` : ''}${item.duration ? `<span><b>${t('duration')}:</b> ${escapeHtml(displayPrescriptionValue(item.duration, t))}</span>` : ''}${item.quantity ? `<span><b>${t('quantity')}:</b> ${escapeHtml(item.quantity)}</span>` : ''}${item.instructions ? `<span><b>${t('instructions')}:</b> ${escapeHtml(item.instructions)}</span>` : ''}</div></li>`).join('')}</ol>${treatment.trim() ? `<h2>${t('recommendations')}</h2><p>${escapeHtml(treatment).replace(/\n/g, '<br>')}</p>` : ''}</div></section>
+      ${customDocumentFooter ? `<div class="custom-footer">${escapeHtml(customDocumentFooter)}</div>` : ''}
+      <footer class="rx-footer"><div class="blue-rule"></div><p>${[doctor?.hospitalName, doctor?.address, doctor?.phoneNumber].filter(Boolean).map(escapeHtml).join(' · ')}</p><small>${t('printSignatureNotice')}</small><div class="signature">${t('doctor')} · ${t('signatureAndStamp')}</div></footer>
+    </main>`;
+    const genericMarkup = `<main class="sheet"><header class="top"><div><strong>${t('doctor')} ${escapeHtml(doctorName)}</strong><div class="muted">${escapeHtml(doctor?.speciality || '')}</div>${doctorContact.map((line) => `<div class="contact">${escapeHtml(line)}</div>`).join('')}${customDocumentHeader ? `<p class="custom-head">${escapeHtml(customDocumentHeader)}</p>` : ''}</div><div>${t('date')}: ${dateLabel}</div></header><h1>${escapeHtml(titleByType[type])}</h1><p><strong>${t('patient')} :</strong> ${escapeHtml(patientName)}</p><p><strong>${t('date')} :</strong> ${dateLabel}</p><section class="body">${contentByType[type]}</section>${customDocumentFooter ? `<p class="custom-footer">${escapeHtml(customDocumentFooter)}</p>` : ''}<p class="notice">${t('printSignatureNotice')}</p><div class="signature"><div class="sign">${t('doctor')} · ${t('signatureAndStamp')}</div></div></main>`;
     printWindow.document.open();
     printWindow.document.write(`<!doctype html><html lang="${escapeHtml(document.documentElement.lang || 'fr')}"><head><meta charset="utf-8"><title>${escapeHtml(titleByType[type])} - ${escapeHtml(patientName)}</title><style>
-      body{font:16px/1.55 Arial,sans-serif;color:#111;margin:0;padding:32px}.sheet{max-width:760px;margin:0 auto}.top{display:flex;justify-content:space-between;border-bottom:2px solid #222;padding-bottom:18px}.muted{color:#555}.body{min-height:330px;padding:24px 0}.notice{font-size:12px;color:#555;border:1px solid #aaa;padding:10px;margin-top:24px}.signature{display:flex;justify-content:flex-end;margin-top:70px}.sign{width:240px;border-top:1px solid #555;padding-top:8px;text-align:center}h1{font-size:24px}h2{font-size:17px;margin-top:24px}li{margin:8px 0}@media print{body{padding:0}.sheet{max-width:none;margin:20mm}}
-    </style></head><body><main class="sheet"><header class="top"><div><strong>${t('doctor')} ${escapeHtml(doctorName)}</strong><div class="muted">${escapeHtml(doctor?.speciality || '')}</div></div><div>${t('date')}: ${dateLabel}</div></header><h1>${escapeHtml(titleByType[type])}</h1><p><strong>${t('patient')} :</strong> ${escapeHtml(patientName)}</p><p><strong>${t('date')} :</strong> ${dateLabel}</p><section class="body">${contentByType[type]}</section><p class="notice">${t('printSignatureNotice')}</p><div class="signature"><div class="sign">${t('doctor')} · ${t('signatureAndStamp')}</div></div></main><script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
+      @page{size:A4;margin:12mm}*{box-sizing:border-box}body{font:15px/1.5 Arial,sans-serif;color:#172b3a;margin:0;padding:28px;-webkit-print-color-adjust:exact;print-color-adjust:exact}.sheet{max-width:760px;margin:0 auto}.top{display:flex;justify-content:space-between;gap:24px;border-bottom:2px solid #222;padding-bottom:18px}.muted{color:#555}.contact{font-size:12px;color:#444;margin-top:3px}.custom-head{font-weight:600;margin:14px 0 0;white-space:pre-line}.body{min-height:300px;padding:24px 0}.custom-footer{font-size:13px;white-space:pre-line;margin-top:20px}.notice{font-size:12px;color:#555;border:1px solid #aaa;padding:10px;margin-top:24px}.signature{display:flex;justify-content:flex-end;margin-top:70px}.sign{width:240px;border-top:1px solid #555;padding-top:8px;text-align:center}h1{font-size:24px}h2{font-size:17px;margin-top:24px}li{margin:8px 0}.rx-sheet{position:relative;display:flex;flex-direction:column;max-width:760px;min-height:270mm;margin:0 auto;padding:10px 20px;color:#176eaa}.rx-header{display:grid;grid-template-columns:minmax(0,1fr) 90px minmax(0,1fr);align-items:center;gap:16px;padding:8px 0 20px}.doctor-side{font-size:13px;line-height:1.8}.doctor-side strong{display:block;font-size:17px;margin-bottom:4px}.doctor-right{text-align:right}.rx-emblem{width:82px;height:82px;color:#1677b8}.rx-emblem svg{width:100%;height:100%}.clinic-line{display:flex;flex-wrap:wrap;justify-content:center;gap:8px;color:#176eaa;font-size:12px;padding:8px 0}.separator{color:#62a6d2}.blue-rule{height:2px;background:#287ab2;width:100%}.rx-sheet .custom-head{margin:10px 0 0;text-align:center;color:#287ab2}.patient-info{padding:14px 0 6px;color:#176eaa}.patient-info p{margin:2px 0 10px}.patient-fields{display:grid;grid-template-columns:1fr 1.5fr 1fr;gap:16px}.rx-sheet h1{text-align:center;text-decoration:underline;font-size:22px;color:#1677b8;margin:12px 0 18px}.rx-body{position:relative;flex:1;min-height:100mm;padding:15px 10px}.watermark{position:absolute;inset:15% 0 auto;display:flex;justify-content:center;color:#c8f4f4;opacity:.55;pointer-events:none}.watermark svg{width:min(65%,380px);height:auto}.rx-content{position:relative;z-index:1;color:#172b3a}.rx-content h2{margin:6px 0 14px;color:#176eaa}.rx-content ol{padding-left:28px}.rx-content li{padding:8px 0 14px 4px}.med-details{display:grid;grid-template-columns:1fr 1fr;gap:3px 18px;margin:6px 0 0;font-size:13px}.rx-footer{margin-top:auto;color:#176eaa;text-align:center}.rx-footer p{margin:10px 0 4px;font-size:12px}.rx-footer small{display:block;color:#687d8b;font-size:10px;margin-top:9px}.rx-footer .signature{justify-content:flex-end;color:#334b5b;font-size:12px;margin:32px 8px 0}.custom-footer{color:#176eaa;text-align:center;white-space:pre-line;margin:12px 0}@media print{body{padding:0}.sheet{max-width:none;margin:20mm auto}.rx-sheet{max-width:none;min-height:273mm;margin:0;padding:0}.rx-body{min-height:0}}
+    </style></head><body>${type === 'prescription' ? prescriptionMarkup : genericMarkup}<script>window.addEventListener('load',()=>setTimeout(()=>window.print(),250));</script></body></html>`);
     printWindow.document.close();
   };
 
@@ -221,6 +255,8 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
         if (!response.ok) throw new Error(data.error || t('patientRecordLoadError'));
         if (!active) return;
         const record = data.record;
+        setAttachments(record?.attachments || []);
+        setPatientProfile(data.patient ? { firstName: data.patient.firstName || '', lastName: data.patient.lastName || '' } : null);
         const entries: ConsultationEntry[] = record?.consultations || [];
         setAppointments((data.appointments || []).filter((item: RecordAppointment) => ['accepted', 'completed'].includes(item.status)));
         setConsultations(entries);
@@ -255,6 +291,16 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
     loadRecord();
     return () => { active = false; };
   }, [isOpen, patientId, appointment._id]);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    let active = true;
+    apiFetch('http://localhost:3000/api/users/profile')
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((profile) => { if (active && profile) setDoctorDocumentProfile(profile); })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [isOpen]);
 
   const doctorId = user?.data?.id || (user as any)?.id;
   useEffect(() => {
@@ -325,6 +371,53 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
     setMedicationSuggestions([]);
   };
 
+  const uploadMedicalAttachment = async (file?: File) => {
+    if (!file) return;
+    const formData = new FormData();
+    formData.append('file', file);
+    setIsUploadingAttachment(true);
+    try {
+      const response = await apiFetch(`http://localhost:3000/api/patients/${patientId}/attachments`, { method: 'POST', body: formData });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || t('medicalAttachmentUploadError'));
+      setAttachments((items) => [data.attachment, ...items]);
+      toast.success(t('medicalAttachmentUploaded'));
+    } catch (error) {
+      toast.error((error as Error).message);
+    } finally {
+      setIsUploadingAttachment(false);
+    }
+  };
+
+  const downloadMedicalAttachment = async (attachment: MedicalAttachment) => {
+    try {
+      const response = await apiFetch(`http://localhost:3000/api/patients/${patientId}/attachments/${attachment._id}`);
+      if (!response.ok) throw new Error(t('medicalAttachmentDownloadError'));
+      const objectUrl = URL.createObjectURL(await response.blob());
+      const link = document.createElement('a');
+      link.href = objectUrl;
+      link.download = attachment.fileName;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      URL.revokeObjectURL(objectUrl);
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  };
+
+  const deleteMedicalAttachment = async (attachment: MedicalAttachment) => {
+    try {
+      const response = await apiFetch(`http://localhost:3000/api/patients/${patientId}/attachments/${attachment._id}`, { method: 'DELETE' });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || t('medicalAttachmentDeleteError'));
+      setAttachments((items) => items.filter((item) => item._id !== attachment._id));
+      toast.success(t('medicalAttachmentDeleted'));
+    } catch (error) {
+      toast.error((error as Error).message);
+    }
+  };
+
   const saveRecord = async (event: React.FormEvent) => {
     event.preventDefault();
     setIsSaving(true);
@@ -393,6 +486,25 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
               <label className="text-sm font-medium md:col-span-2">{t('currentMedications')}
                 <textarea value={currentMedications} onChange={(event) => setCurrentMedications(event.target.value)} rows={2} className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950" placeholder={t('currentMedicationsPlaceholder')} />
               </label>
+            </section>
+
+            <section className="border-t pt-5">
+              <div className="flex flex-wrap items-start justify-between gap-3">
+                <div>
+                  <h3 className="flex items-center gap-2 font-semibold"><Paperclip className="h-5 w-5 text-indigo-600" />{t('medicalAttachments')}</h3>
+                  <p className="mt-1 text-xs text-slate-500">{t('medicalAttachmentsHelp')}</p>
+                </div>
+                <label className="inline-flex cursor-pointer items-center gap-2 rounded-xl bg-indigo-600 px-4 py-2 text-sm font-semibold text-white hover:bg-indigo-700">
+                  <Upload className="h-4 w-4" />{isUploadingAttachment ? t('uploading') : t('addMedicalAttachment')}
+                  <input type="file" accept="application/pdf,image/jpeg,image/png" disabled={isUploadingAttachment} className="sr-only" onChange={(event) => { void uploadMedicalAttachment(event.target.files?.[0]); event.currentTarget.value = ''; }} />
+                </label>
+              </div>
+              {attachments.length ? <ul className="mt-3 divide-y rounded-xl border dark:divide-slate-800 dark:border-slate-700">
+                {attachments.map((attachment) => <li key={attachment._id} className="flex flex-wrap items-center justify-between gap-3 px-3 py-2.5">
+                  <div className="min-w-0"><p className="truncate text-sm font-medium">{attachment.fileName}</p><p className="text-xs text-slate-500">{(attachment.size / 1024).toFixed(0)} Ko · {format(new Date(attachment.uploadedAt), 'dd/MM/yyyy', { locale: fr })}</p></div>
+                  <div className="flex shrink-0 gap-1"><button type="button" onClick={() => void downloadMedicalAttachment(attachment)} className="rounded-lg p-2 text-indigo-600 hover:bg-indigo-50 dark:hover:bg-slate-800" aria-label={`${t('download')} ${attachment.fileName}`}><Download className="h-4 w-4" /></button><button type="button" onClick={() => void deleteMedicalAttachment(attachment)} className="rounded-lg p-2 text-red-600 hover:bg-red-50 dark:hover:bg-slate-800" aria-label={`${t('delete')} ${attachment.fileName}`}><Trash2 className="h-4 w-4" /></button></div>
+                </li>)}
+              </ul> : <p className="mt-3 rounded-xl border border-dashed p-4 text-center text-sm text-slate-500 dark:border-slate-700">{t('noMedicalAttachments')}</p>}
             </section>
 
             <section className="border-t pt-5">
