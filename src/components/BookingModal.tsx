@@ -82,6 +82,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
   const [isTeleconsultation, setIsTeleconsultation] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
+  const [liveAvailability, setLiveAvailability] = useState<Record<string, string[]>>({});
 
   const resetForm = () => {
     setSelectedDate(new Date());
@@ -95,40 +96,52 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
     onClose();
   };
 
-  // Fetch doctor's appointments
+  // Refresh booked appointments and free slots while the modal is open.
   useEffect(() => {
-    const fetchAppointments = async () => {
-      try {
-        console.log('Fetching appointments for doctor:', doctor);
-        console.log('Doctor ID:', doctor._id);
-        const token = localStorage.getItem('token');
-        const response = await fetch(`http://localhost:3000/api/appointments/doctor/${doctor._id}`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        });
+    if (!isOpen || !doctor?._id) return;
 
-        if (!response.ok) {
-          throw new Error('Erreur lors de la récupération des rendez-vous.');
+    let isActive = true;
+    const refreshBookingData = async () => {
+      try {
+        const token = localStorage.getItem('token');
+        const today = new Date();
+        const startDate = format(today, 'yyyy-MM-dd');
+        const end = new Date(today);
+        end.setDate(end.getDate() + 14);
+        const endDate = format(end, 'yyyy-MM-dd');
+
+        const [appointmentsResponse, slotsResponse] = await Promise.all([
+          fetch(`http://localhost:3000/api/appointments/doctor/${doctor._id}`, {
+            headers: { Authorization: `Bearer ${token}` },
+          }),
+          fetch(`http://localhost:3000/api/users/doctors/${doctor._id}/available-slots?startDate=${startDate}&endDate=${endDate}`),
+        ]);
+        if (!appointmentsResponse.ok || !slotsResponse.ok) {
+          throw new Error('Erreur lors de la récupération des disponibilités.');
         }
 
-        const data = await response.json();
-        if (!Array.isArray(data.appointments)) {
-          console.error('Réponse inattendue:', data);
+        const [appointmentsData, slotsData] = await Promise.all([
+          appointmentsResponse.json(),
+          slotsResponse.json(),
+        ]);
+        if (!Array.isArray(appointmentsData.appointments)) {
           throw new Error('Les rendez-vous reçus ne sont pas dans un format valide.');
         }
-        setAppointments(data.appointments);
+        if (!isActive) return;
+        setAppointments(appointmentsData.appointments);
+        setLiveAvailability(slotsData.availableSlots || {});
       } catch (error) {
-        console.error('Erreur:', error);
-        toast.error('Impossible de vérifier les rendez-vous existants.');
-        setAppointments([]);
+        if (isActive) console.error('Erreur de mise à jour des disponibilités:', error);
       }
     };
 
-    if (isOpen && doctor) {
-      fetchAppointments();
-    }
-  }, [isOpen, doctor]);
+    refreshBookingData();
+    const intervalId = window.setInterval(refreshBookingData, 5000);
+    return () => {
+      isActive = false;
+      window.clearInterval(intervalId);
+    };
+  }, [isOpen, doctor?._id]);
 
   // Handle symptom checkbox changes
   const handleSymptomChange = (symptom: string) => {
@@ -212,7 +225,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
 
   const formattedDate = format(selectedDate, 'yyyy-MM-dd');
   const cleanedAvailability: { [date: string]: string[] } = {};
-  for (const [date, times] of Object.entries(doctor.availability || {})) {
+  for (const [date, times] of Object.entries(liveAvailability)) {
     if (date !== '$*' && /^\d{4}-\d{2}-\d{2}$/.test(date)) {
       cleanedAvailability[date] = times;
     }

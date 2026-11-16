@@ -385,6 +385,9 @@ export function DoctorDashboard() {
   useEffect(() => {
     fetchAppointments();
     fetchAvailability();
+
+    const intervalId = window.setInterval(fetchAppointments, 5000);
+    return () => window.clearInterval(intervalId);
   }, []);
 
   return (
