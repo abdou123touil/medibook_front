@@ -11,6 +11,7 @@ import { format } from "date-fns";
 import { fr } from "date-fns/locale";
 import { motion } from "framer-motion";
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface Review {
   _id: string;
@@ -29,6 +30,7 @@ interface ReviewModalProps {
 }
 
 export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
+  const { t, i18n } = useTranslation();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [newReview, setNewReview] = useState({ rating: 0, comment: "" });
   const [loading, setLoading] = useState<boolean>(false);
@@ -45,7 +47,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
 
     if (!token) {
       console.error("No token found in localStorage.");
-      toast.error("Veuillez vous connecter pour voir les avis.");
+      toast.error(t('loginToViewReviews'));
       setLoading(false);
       return;
     }
@@ -99,10 +101,10 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
       })
       .catch((error) => {
         console.error("Error fetching reviews:", error);
-        toast.error(`Erreur lors de la récupération des avis: ${error.message}`);
+        toast.error(t('reviewsLoadError'));
         setLoading(false);
       });
-  }, [isOpen, doctorId]);
+  }, [isOpen, doctorId, t]);
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -110,17 +112,17 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
     const token = localStorage.getItem("token");
 
     if (!token) {
-      toast.error("Veuillez vous connecter pour soumettre un avis.");
+      toast.error(t('loginToSubmitReview'));
       return;
     }
 
     if (newReview.rating < 1 || newReview.rating > 5) {
-      toast.error("La note doit être entre 1 et 5.");
+      toast.error(t('ratingRangeError'));
       return;
     }
 
     if (!newReview.comment.trim()) {
-      toast.error("Un commentaire est requis.");
+      toast.error(t('reviewCommentRequired'));
       return;
     }
 
@@ -152,10 +154,10 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
       console.log("Added review:", addedReview);
       setReviews((prevReviews) => [addedReview, ...prevReviews]);
       setNewReview({ rating: 0, comment: "" });
-      toast.success("Avis soumis avec succès !");
+      toast.success(t('reviewSubmitted'));
     } catch (error) {
       console.error("Error submitting review:", error);
-      toast.error(`Erreur lors de la soumission de l'avis: ${error.message}`);
+      toast.error(t('reviewSubmitError'));
     }
   };
 
@@ -189,7 +191,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
     const token = localStorage.getItem("token");
 
     if (!userId || !token) {
-      toast.error("Veuillez vous connecter pour réagir.");
+      toast.error(t('loginToReact'));
       return;
     }
 
@@ -231,10 +233,10 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
       if (!response.ok) throw new Error("Failed to update reaction");
 
       await fetchReactions(reviewId);
-      toast.success("Réaction mise à jour !");
+      toast.success(t('reactionUpdated'));
     } catch (error) {
       console.error("Error handling reaction:", error);
-      toast.error("Erreur lors de la mise à jour de la réaction.");
+      toast.error(t('reactionUpdateError'));
     }
   };
 
@@ -265,7 +267,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
 
             <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
               <MessageCircle className="w-6 h-6 text-indigo-600" />
-              Avis des patients
+              {t('patientReviews')}
             </h2>
 
             <div className="space-y-4 max-h-[300px] overflow-y-scroll scrollbar-hide">
@@ -300,7 +302,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
                         </span>
                       </div>
                       <span className="text-sm text-gray-500">
-                        {format(new Date(review.date), "PP", { locale: fr })}
+                        {format(new Date(review.date), "PP", { locale: i18n.language.startsWith('ar') ? undefined : i18n.language.startsWith('en') ? undefined : fr })}
                       </span>
                     </div>
 
@@ -335,7 +337,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
                   </div>
                 ))
               ) : (
-                <p className="text-gray-500">Aucun avis pour ce médecin.</p>
+                <p className="text-gray-500">{t('noDoctorReviews')}</p>
               )}
             </div>
 
@@ -357,7 +359,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
               </div>
               <textarea
                 className="mt-2 w-full p-2 border dark:bg-gray-900 border-gray-300 rounded-md"
-                placeholder="Votre avis"
+                placeholder={t('yourReview')}
                 value={newReview.comment}
                 onChange={(e) =>
                   setNewReview({ ...newReview, comment: e.target.value })
@@ -367,7 +369,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
                 type="submit"
                 className="mt-3 w-full bg-indigo-600 text-white py-2 rounded-md hover:bg-indigo-700"
               >
-                Ajouter un avis
+                {t('addReview')}
               </button>
             </form>
           </div>

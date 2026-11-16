@@ -1,11 +1,12 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
-import { fr } from "date-fns/locale";
+import { ar, enUS, fr } from "date-fns/locale";
 import { Send, X, MessageCircle, Bot, CheckCheck } from "lucide-react";
 import { useAuthStore } from "../store/auth";
 import clsx from "clsx";
 import io from "socket.io-client";
+import { useTranslation } from "react-i18next";
 
 interface Message {
   _id: string;
@@ -63,6 +64,8 @@ interface ChatProps {
 }
 
 export function Chat({ onClose }: ChatProps) {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
   const { user } = useAuthStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] =
@@ -155,7 +158,7 @@ export function Chat({ onClose }: ChatProps) {
           lastMessage: {
             _id: "bot_welcome",
             content:
-              "Bonjour ! Je suis MediBot, votre assistant médical IA. Posez-moi vos questions médicales pour des conseils rapides et précis !",
+              t('botWelcome'),
             senderId: {
               _id: "bot_medical_advisor",
               firstName: "MediBot",
@@ -357,7 +360,7 @@ export function Chat({ onClose }: ChatProps) {
               {
                 _id: "bot_welcome",
                 content:
-                  "Bonjour ! Je suis MediBot, votre assistant médical IA. Posez-moi vos questions médicales pour des conseils rapides et précis !",
+                  t('botWelcome'),
                 senderId: {
                   _id: "bot_medical_advisor",
                   firstName: "MediBot",
@@ -497,7 +500,7 @@ export function Chat({ onClose }: ChatProps) {
       }
     } catch (error) {
       console.error("Error sending message:", error);
-      alert("Erreur lors de l'envoi du message. Veuillez réessayer.");
+      alert(t('chatSendError'));
       setIsBotTyping(false);
     }
   };
@@ -547,8 +550,8 @@ export function Chat({ onClose }: ChatProps) {
                     <p className="text-sm text-gray-500 truncate">
                       {conversation.lastMessage?.content ||
                         (conversation.isBot
-                          ? "Assistant médical IA"
-                          : "Nouveau rendez-vous")}
+                          ? t('medicalAiAssistant')
+                          : t('newAppointment'))}
                     </p>
                     <div className="flex justify-between items-center mt-1">
                       <p className="text-xs text-gray-400">
@@ -557,7 +560,7 @@ export function Chat({ onClose }: ChatProps) {
                               new Date(lastMessageDate),
                               "dd/MM/yyyy HH:mm"
                             )
-                          : "Aucun message"}
+                          : t('noMessages')}
                       </p>
                       {conversation.unreadCount > 0 && (
                         <span className="bg-indigo-600 text-white rounded-full px-2 py-1 text-xs">
@@ -615,7 +618,7 @@ export function Chat({ onClose }: ChatProps) {
                             )}
                           >
                             {format(new Date(message.createdAt), "HH:mm", {
-                              locale: fr,
+                              locale: dateLocale,
                             })}
                           </p>
                           {message.senderId._id === user?.data?.id && (
@@ -626,7 +629,7 @@ export function Chat({ onClose }: ChatProps) {
                                   ? "text-green-400"
                                   : "text-indigo-200"
                               )}
-                              title={message.readAt ? "Vu" : "Envoyé"}
+                              title={message.readAt ? t('seen') : t('sent')}
                             />
                           )}
                         </div>
@@ -635,7 +638,7 @@ export function Chat({ onClose }: ChatProps) {
                     {isBotTyping && selectedConversation.isBot && (
                       <div className="max-w-[80%] rounded-lg p-3 bg-gray-100 dark:bg-gray-700">
                         <p className="text-gray-500 animate-pulse">
-                          MediBot est en train de taper...
+                          {t('botTyping')}
                         </p>
                       </div>
                     )}
@@ -655,8 +658,8 @@ export function Chat({ onClose }: ChatProps) {
                     onChange={(e) => setNewMessage(e.target.value)}
                     placeholder={
                       selectedConversation.isBot
-                        ? "Posez une question médicale..."
-                        : "Écrivez votre message..."
+                        ? t('askMedicalQuestion')
+                        : t('writeMessage')
                     }
                     className="flex-1 px-4 py-2 border dark:border-gray-600 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent dark:bg-gray-700"
                   />
@@ -672,7 +675,7 @@ export function Chat({ onClose }: ChatProps) {
             </>
           ) : (
             <div className="flex-1 flex items-center justify-center text-gray-500">
-              Sélectionnez une conversation
+              {t('selectConversation')}
             </div>
           )}
         </div>

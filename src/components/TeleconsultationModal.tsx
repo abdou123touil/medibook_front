@@ -129,7 +129,7 @@ export function TeleconsultationModal({ isOpen, onClose, jitsiUrl, appointment }
               src={jitsiUrl}
               allow="camera; microphone; fullscreen"
               className="w-full h-full"
-              title="Jitsi Teleconsultation"
+              title={t('jitsiTeleconsultation')}
             />
           ) : (
             <div className="h-full flex items-center justify-center text-gray-600 dark:text-gray-300">

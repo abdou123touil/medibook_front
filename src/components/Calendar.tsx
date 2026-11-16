@@ -1,7 +1,8 @@
 import React from 'react';
 import { format, isSameDay } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { ar, enUS, fr } from 'date-fns/locale';
 import clsx from 'clsx';
+import { useTranslation } from 'react-i18next';
 
 interface CalendarProps {
   selectedDate: Date;
@@ -22,6 +23,8 @@ export function Calendar({
   isSlotBooked = () => false, // Default to false if not provided
   blockedPeriods = [],
 }: CalendarProps) {
+  const { t, i18n } = useTranslation();
+  const locale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
   // Mock calendar implementation (replace with your actual calendar logic)
   const handleDateClick = (date: Date) => {
     onDateSelect(date);
@@ -59,10 +62,10 @@ export function Calendar({
                 ? 'bg-indigo-600 text-white'
                 : 'hover:bg-blue-50 dark:hover:bg-gray-600 dark:hover:text-white'
             )}
-            title={blocked ? 'Médecin absent' : undefined}
+            title={blocked ? t('doctorAbsent') : undefined}
           >
-            <div className="text-xs mb-1">{format(date, 'EEE', { locale: fr })}</div>
-            <div>{format(date, 'd', { locale: fr })}</div>
+            <div className="text-xs mb-1">{format(date, 'EEE', { locale })}</div>
+            <div>{format(date, 'd', { locale })}</div>
           </button>
           );
         })}
@@ -71,14 +74,14 @@ export function Calendar({
       {/* Time Slots */}
       <div>
         <h3 className="text-sm font-medium mb-2">
-          Créneaux disponibles pour le {format(selectedDate, 'EEEE d MMMM', { locale: fr })}
+          {t('availableSlotsForDate', { date: format(selectedDate, 'EEEE d MMMM', { locale }) })}
         </h3>
         {selectedDateBlocked ? (
           <p className="rounded-lg bg-red-50 p-3 text-sm font-medium text-red-700 dark:bg-red-950 dark:text-red-200">
-            Le médecin est absent ce jour-là. Choisissez une autre date.
+            {t('doctorAbsentDay')}
           </p>
         ) : availableSlots.length === 0 ? (
-          <p className="text-gray-500">Aucun créneau disponible</p>
+          <p className="text-gray-500">{t('noAvailableSlots')}</p>
         ) : (
           <div className="grid grid-cols-4 gap-2 ">
             {availableSlots.map((time) => (

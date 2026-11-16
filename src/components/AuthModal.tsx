@@ -3,6 +3,8 @@ import { X } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../store/auth';
 import { AnimatePresence, motion } from 'framer-motion';
+import { useTranslation } from 'react-i18next';
+import toast from 'react-hot-toast';
 
 type AuthMode = 'login' | 'register';
 
@@ -12,12 +14,13 @@ interface AuthModalProps {
 }
 
 export function AuthModal({ isOpen, onClose }: AuthModalProps) {
+  const { t } = useTranslation();
   const [mode, setMode] = useState<AuthMode>('login');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'client' | 'doctor'>('client');
   const navigate = useNavigate();
-  const { user, isAuthenticated, setUser, setToken } = useAuthStore();
+  const { user, isAuthenticated, setUser, setToken, setPendingRegistration } = useAuthStore();
 
   const modalVariants = {
     hidden: { opacity: 0, scale: 0.8 },
@@ -37,10 +40,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    localStorage.setItem('email', email);
-    localStorage.setItem('password', password);
-    localStorage.setItem('role', role);
-
+    setPendingRegistration({ email: email.trim(), password, role });
     navigate('/profile-completion');
     onClose();
   };
@@ -66,10 +66,11 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
         navigate(data.user.role === 'doctor' ? '/doctor' : '/client', { replace: true });
         onClose();
       } else {
-        console.error('Échec de connexion:', data.message);
+        toast.error(data.error || t('loginFailed'));
       }
     } catch (error) {
       console.error('Erreur de connexion:', error);
+      toast.error(t('loginFailed'));
     }
   };
 
@@ -94,12 +95,12 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
             <X className="w-6 h-6" />
           </button>
 
-          <h2 className="text-2xl font-bold mb-6">{mode === 'login' ? 'Connexion' : 'Inscription'}</h2>
+          <h2 className="text-2xl font-bold mb-6">{mode === 'login' ? t('login') : t('register')}</h2>
 
           {mode === 'login' ? (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">{t('email')}</label>
                 <input
                   type="email"
                   value={email}
@@ -110,7 +111,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">Mot de passe</label>
+                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">{t('password')}</label>
                 <input
                   type="password"
                   value={password}
@@ -124,13 +125,13 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 type="submit"
                 className="w-full bg-indigo-600 dark:text-white text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
               >
-                Se connecter
+                {t('login')}
               </button>
             </form>
           ) : (
             <form onSubmit={handleRegisterSubmit} className="space-y-4">
               <div>
-                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">Email</label>
+                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">{t('email')}</label>
                 <input
                   type="email"
                   value={email}
@@ -141,25 +142,27 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               </div>
 
               <div>
-                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">Mot de passe</label>
+                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">{t('password')}</label>
                 <input
                   type="password"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
+                  minLength={8}
+                  autoComplete="new-password"
                   className="w-full px-3 py-2 border dark:text-black border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   required
                 />
               </div>
 
               <div>
-                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">Type d'utilisateur</label>
+                <label className="block text-sm font-medium dark:text-white text-gray-700 mb-1">{t('accountType')}</label>
                 <select
                   value={role}
                   onChange={(e) => setRole(e.target.value as 'client' | 'doctor')}
                   className="w-full px-3 py-2 border dark:text-black border-gray-300 rounded-lg"
                 >
-                  <option value="client">Client</option>
-                  <option value="doctor">Médecin</option>
+                  <option value="client">{t('client')}</option>
+                  <option value="doctor">{t('doctor')}</option>
                 </select>
               </div>
 
@@ -167,7 +170,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
                 type="submit"
                 className="w-full bg-indigo-600 text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
               >
-                S'inscrire
+                {t('register')}
               </button>
             </form>
           )}
@@ -177,7 +180,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
               onClick={() => setMode(mode === 'login' ? 'register' : 'login')}
               className="text-sm dark:text-white text-indigo-600 hover:underline"
             >
-              {mode === 'login' ? "Pas encore inscrit ? S'inscrire" : 'Déjà un compte ? Se connecter'}
+              {mode === 'login' ? t('needAccount') : t('alreadyHaveAccount')}
             </button>
           </div>
         </motion.div>

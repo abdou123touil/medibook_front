@@ -1,5 +1,6 @@
 import React from 'react';
 import { FileText, Activity, Pill, AlertCircle } from 'lucide-react';
+import { useTranslation } from 'react-i18next';
 
 interface MedicalRecord {
   id: string;
@@ -15,11 +16,12 @@ interface MedicalHistoryProps {
 }
 
 export function MedicalHistory({ records }: MedicalHistoryProps) {
+  const { t } = useTranslation();
   return (
     <div className="bg-white rounded-xl shadow-lg p-6 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
       <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
         <FileText className="w-6 h-6 text-indigo-600" />
-        Historique Médical
+        {t('medicalHistoryTitle')}
       </h2>
 
       <div className="space-y-6 ">
@@ -46,7 +48,7 @@ export function MedicalHistory({ records }: MedicalHistoryProps) {
               </div>
             </div>
             <p className="text-gray-600 mb-2 whitespace-pre-line dark:text-gray-100">
-              {record.description || 'Aucun détail ajouté.'}
+              {record.description || t('noDetailsAdded')}
             </p>
             {record.documents && record.documents.length > 0 && (
               <div className="flex gap-2 dark:text-gray-100">
@@ -57,14 +59,14 @@ export function MedicalHistory({ records }: MedicalHistoryProps) {
                     className="text-sm text-indigo-600 hover:text-indigo-800 flex items-center gap-1 dark:text-gray-100"
                   >
                     <FileText className="w-4 h-4" />
-                    Document {index + 1}
+                    {t('documentNumber', { number: index + 1 })}
                   </a>
                 ))}
               </div>
             )}
           </div>
         ))}
-        {records.length === 0 && <p className="text-sm text-gray-500">Aucune consultation enregistrée dans votre dossier.</p>}
+        {records.length === 0 && <p className="text-sm text-gray-500">{t('noMedicalHistory')}</p>}
       </div>
     </div>
   );

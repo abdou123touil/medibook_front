@@ -1,11 +1,18 @@
 import { create } from 'zustand';
 
 interface User {
-  id: string;
-  firstName: string;
-  lastName: string;
-  email: string;
-  role: 'client' | 'doctor';
+  id?: string;
+  firstName?: string;
+  lastName?: string;
+  email?: string;
+  role?: 'client' | 'doctor';
+  data?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+    role: 'client' | 'doctor';
+  };
 }
 
 interface AuthState {
@@ -16,12 +23,17 @@ interface AuthState {
   
   setToken: (token: string | null) => void;
   isAuthenticated: boolean;
+  pendingRegistration: { email: string; password: string; role: 'client' | 'doctor' } | null;
+  setPendingRegistration: (registration: AuthState['pendingRegistration']) => void;
 }
 
 export const useAuthStore = create<AuthState>((set) => ({
   user: null,
   token: localStorage.getItem('token'),
   isAuthenticated: !!localStorage.getItem('token'),
+  pendingRegistration: null,
+
+  setPendingRegistration: (pendingRegistration) => set({ pendingRegistration }),
  
   setToken: (token) => {
     localStorage.setItem('token', token || '');

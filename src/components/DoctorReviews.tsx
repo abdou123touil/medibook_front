@@ -3,6 +3,7 @@ import { Star, ThumbsUp, MessageCircle } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useParams } from 'react-router-dom';
+import { useTranslation } from 'react-i18next';
 
 interface Review {
   id: string;
@@ -14,6 +15,7 @@ interface Review {
 }
 
 export function DoctorReviews() {
+  const { t } = useTranslation();
   const { doctorId } = useParams(); 
   const [reviews, setReviews] = useState<Review[]>([]);
   const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
@@ -96,12 +98,12 @@ export function DoctorReviews() {
         </div>
         <textarea
           className="mt-2 w-full p-2 border border-gray-300 rounded-md"
-          placeholder="Votre avis"
+          placeholder={t('yourReview')}
           value={newReview.comment}
           onChange={(e) => setNewReview({ ...newReview, comment: e.target.value })}
         />
         <button type="submit" className="mt-4 px-6 py-2 bg-indigo-600 text-white rounded-md">
-          Soumettre l'avis
+          {t('submitReview')}
         </button>
       </form>
     </div>

@@ -7,15 +7,12 @@ import DoctorSkeleton from "../components/DoctorSkeleton"; // Import du Skeleton
 import { useTranslation } from "react-i18next";
 
 const specialties = [
-  "Dentiste",
-  "Generaliste",
-  "Cardiologue",
-  "Dermatologue",
-  "Pédiatre",
-  "Ophtalmologue",
-  "Orthopédiste",
-  "ORL",
+  { value: "Dentiste", key: "specialtyDentist" }, { value: "Generaliste", key: "specialtyGeneralPractitioner" },
+  { value: "Cardiologue", key: "specialtyCardiologist" }, { value: "Dermatologue", key: "specialtyDermatologist" },
+  { value: "Pédiatre", key: "specialtyPediatrician" }, { value: "Ophtalmologue", key: "specialtyOphthalmologist" },
+  { value: "Orthopédiste", key: "specialtyOrthopedist" }, { value: "ORL", key: "specialtyEnt" },
 ];
+const specialtyKeys: Record<string, string> = Object.fromEntries(specialties.map((item) => [item.value.toLowerCase(), item.key]));
 
 interface Doctor {
   id: string;
@@ -30,6 +27,7 @@ interface Doctor {
 }
 
 export function ClientDashboard() {
+  const { t } = useTranslation();
   const location = useLocation();
   const navigate = useNavigate();
   const [selectedSpecialty, setSelectedSpecialty] = useState<string>("");
@@ -47,7 +45,7 @@ export function ClientDashboard() {
       try {
         const response = await fetch("http://localhost:3000/api/users/doctors");
         if (!response.ok) {
-          throw new Error("Erreur lors de la récupération des médecins.");
+          throw new Error(t("errorLoadDoctors"));
         }
         const data = await response.json();
         setTimeout(() => {
@@ -56,14 +54,14 @@ export function ClientDashboard() {
         }, 1000); // Attendre 1 seconde avant de masquer le loader
       } catch (error) {
         setTimeout(() => {
-          setError(error.message);
+          setError(t("errorLoadDoctors"));
           setLoading(false);
         }, 1000); // Même délai pour l'erreur
       }
     };
 
     fetchDoctors();
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     if (loading) return;
@@ -77,10 +75,10 @@ export function ClientDashboard() {
       setSelectedDoctor(doctorToRebook);
       setIsBookingModalOpen(true);
     } else {
-      setError('Le médecin de ce rendez-vous est introuvable. Vous pouvez le rechercher dans la liste.');
+      setError(t('doctorNotFound'));
     }
     navigate(location.pathname, { replace: true, state: null });
-  }, [doctors, loading, location.pathname, location.state, navigate]);
+  }, [doctors, loading, location.pathname, location.state, navigate, t]);
 
   const handleBookAppointment = (appointment: {
     date: Date;
@@ -109,7 +107,7 @@ export function ClientDashboard() {
         {/* Filtres */}
         <div className="md:col-span-3  space-y-6">
           <div className="bg-white dark:bg-gray-900 border rounded-xl shadow-lg p-6">
-            <h2 className="text-lg font-semibold mb-4">Spécialités</h2>
+            <h2 className="text-lg font-semibold mb-4">{t('specialties')}</h2>
             <div className="space-y-2">
               <button
                 onClick={() => setSelectedSpecialty("")}
@@ -119,19 +117,19 @@ export function ClientDashboard() {
                     : "hover:bg-gray-100 hover:text-indigo-700"
                 }`}
               >
-                Toutes les spécialités
+                {t('allSpecialties')}
               </button>
               {specialties.map((specialty) => (
                 <button
-                  key={specialty}
-                  onClick={() => setSelectedSpecialty(specialty)}
+                  key={specialty.value}
+                  onClick={() => setSelectedSpecialty(specialty.value)}
                   className={`w-full text-left px-4 py-2 rounded-lg transition-colors ${
-                    selectedSpecialty === specialty
+                    selectedSpecialty === specialty.value
                       ? "bg-indigo-100 text-indigo-700"
                       : "hover:bg-gray-100 hover:text-indigo-700"
                   }`}
                 >
-                  {specialty}
+                  {t(specialty.key)}
                 </button>
               ))}
             </div>
@@ -146,7 +144,7 @@ export function ClientDashboard() {
                 <Search className="absolute left-3 top-1/2 transform -translate-y-1/2  text-gray-400 w-5 h-5" />
                 <input
                   type="text"
-                  placeholder="Rechercher un médecin..."
+                  placeholder={t('searchDoctor')}
                   className="w-full pl-10 pr-4 py-2 rounded-lg dark:bg-gray-900 border border-gray-300 focus:ring-2 focus:ring-indigo-500 focus:border-transparent"
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
@@ -158,15 +156,15 @@ export function ClientDashboard() {
             
               <div className="text-center py-12">
                 <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mx-auto"></div>
-                <p className="mt-4 text-gray-600">Chargement des médecins...</p>
+                <p className="mt-4 text-gray-600">{t('loadingDoctors')}</p>
               </div>
             ) : filteredDoctors.length === 0 ? (
             
               <div className="text-center py-12">
                 <p className="text-gray-600">
                   {selectedSpecialty
-                    ? `Aucun médecin trouvé pour la spécialité "${selectedSpecialty}"`
-                    : "Aucun médecin trouvé"}
+                    ? t('noDoctorForSpecialty', { specialty: t(specialtyKeys[selectedSpecialty.toLowerCase()] || selectedSpecialty) })
+                    : t('noDoctorFound')}
                 </p>
                 <div className="grid md:grid-cols-2 gap-4 mt-4">
                   {[...Array(4)].map((_, index) => (
@@ -187,7 +185,7 @@ export function ClientDashboard() {
                         <h3 className="text-lg font-semibold">
                           Dr. {doctor.lastName}
                         </h3>
-                        <p className="text-indigo-600">{doctor.speciality}</p>
+                        <p className="text-indigo-600">{t(specialtyKeys[doctor.speciality?.toLowerCase()] || doctor.speciality)}</p>
                         <p className="text-sm text-gray-600 mt-2">
                           {doctor.description}
                         </p>
@@ -196,11 +194,11 @@ export function ClientDashboard() {
                     <div className="mt-4 flex items-center gap-4">
                       <div className="flex items-center text-sm text-gray-600">
                         <Calendar className="w-4 h-4 mr-1" />
-                        Prochain RDV disponible
+                        {t('nextAvailableAppointment')}
                       </div>
                       <div className="flex items-center text-sm font-semibold text-indigo-600">
                         <Clock className="w-4 h-4 mr-1" />
-                        Voir les disponibilités
+                        {t('viewAvailability')}
                       </div>
                     </div>
                     <button
@@ -210,7 +208,7 @@ export function ClientDashboard() {
                       }}
                       className="mt-4 w-full bg-indigo-600  text-white py-2 rounded-lg hover:bg-indigo-700 transition-colors"
                     >
-                      Prendre rendez-vous
+                      {t('bookAppointment')}
                     </button>
                     <button
                       onClick={() => {
@@ -219,7 +217,7 @@ export function ClientDashboard() {
                       }}
                       className="w-full dark:bg-gray-600 bg-gray-100 dark:text-white text-indigo-600 py-2 rounded-lg hover:bg-gray-200 transition-colors"
                     >
-                      Voir Avis
+                      {t('viewReviews')}
                     </button>
                   </div>
                 ))}

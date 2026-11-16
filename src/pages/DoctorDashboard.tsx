@@ -185,7 +185,7 @@ export function DoctorDashboard() {
     reason?: string
   ) => {
     if (status === 'cancelled' && (reason?.trim().length || 0) < 5) {
-      toast.error('Indiquez une raison d’au moins 5 caractères.');
+      toast.error(t('refusalReasonMinimum'));
       return;
     }
     try {
@@ -582,7 +582,7 @@ export function DoctorDashboard() {
                             <button
                               onClick={() => setPatientRecordAppointment(appointment)}
                               className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700"
-                              title="Ouvrir la fiche patient"
+                              title={t('openPatientRecord')}
                             >
                               <FileText className="w-4 h-4" />
                               Fiche patient
@@ -668,13 +668,13 @@ export function DoctorDashboard() {
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4" role="presentation">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="refuse-appointment-title">
             <h2 id="refuse-appointment-title" className="text-xl font-semibold text-gray-900 dark:text-white">
-              Refuser cette demande ?
+              {t('refuseThisRequest')}
             </h2>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-              Le patient recevra votre décision et la raison indiquée.
+              {t('patientWillReceiveRefusalReason')}
             </p>
             <label htmlFor="doctor-refusal-reason" className="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-200">
-              Raison du refus (obligatoire)
+              {t('refusalReasonRequired')}
             </label>
             <textarea
               id="doctor-refusal-reason"
@@ -683,7 +683,7 @@ export function DoctorDashboard() {
               maxLength={500}
               rows={3}
               required
-              placeholder="Expliquez brièvement au patient (5 caractères minimum)."
+              placeholder={t('refusalReasonPlaceholder')}
               className="mt-1 w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
             />
             <div className="mt-6 flex justify-end gap-3">
@@ -692,7 +692,7 @@ export function DoctorDashboard() {
                 onClick={() => { setAppointmentToRefuse(null); setRefusalReason(''); }}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
               >
-                Garder la demande
+                {t('keepRequest')}
               </button>
               <button
                 type="button"

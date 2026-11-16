@@ -3,6 +3,7 @@ import { X, Save, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface RecordAppointment {
   _id: string;
@@ -31,6 +32,7 @@ interface PatientRecordModalProps {
 }
 
 export function PatientRecordModal({ isOpen, onClose, patientId, patientName, appointment }: PatientRecordModalProps) {
+  const { t } = useTranslation();
   const [appointments, setAppointments] = useState<RecordAppointment[]>([]);
   const [consultations, setConsultations] = useState<ConsultationEntry[]>([]);
   const [selectedAppointmentId, setSelectedAppointmentId] = useState(appointment._id);
@@ -61,7 +63,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
           headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
         });
         const data = await response.json();
-        if (!response.ok) throw new Error(data.error || 'Impossible de charger la fiche patient.');
+        if (!response.ok) throw new Error(data.error || t('patientRecordLoadError'));
         if (!active) return;
         const record = data.record;
         const entries: ConsultationEntry[] = record?.consultations || [];
@@ -129,9 +131,9 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
         }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Impossible d’enregistrer la fiche.');
+      if (!response.ok) throw new Error(data.error || t('patientRecordSaveError'));
       setConsultations(data.record.consultations || []);
-      toast.success('Fiche patient enregistrée.');
+      toast.success(t('patientRecordSaved'));
     } catch (error) {
       toast.error((error as Error).message);
     } finally {
@@ -142,51 +144,51 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`Fiche patient ${patientName}`}>
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-label={`${t('patientRecord')} ${patientName}`}>
       <div className="bg-white dark:bg-gray-800 w-full max-w-3xl max-h-[90vh] overflow-y-auto rounded-xl shadow-xl p-6">
         <div className="flex items-start justify-between gap-4 mb-6">
           <div>
-            <h2 className="text-2xl font-semibold flex items-center gap-2"><ClipboardList className="w-6 h-6 text-indigo-600" />Fiche patient</h2>
+            <h2 className="text-2xl font-semibold flex items-center gap-2"><ClipboardList className="w-6 h-6 text-indigo-600" />{t('patientRecord')}</h2>
             <p className="text-gray-600 dark:text-gray-300 mt-1">{patientName}</p>
           </div>
-          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" aria-label="Fermer"><X /></button>
+          <button onClick={onClose} className="p-2 rounded-full hover:bg-gray-100 dark:hover:bg-gray-700" aria-label={t('close')}><X /></button>
         </div>
 
-        {isLoading ? <p className="py-10 text-center">Chargement de la fiche…</p> : loadError ? (
+        {isLoading ? <p className="py-10 text-center">{t('loadingPatientRecord')}</p> : loadError ? (
           <div className="py-8 text-center text-red-600">
             <p>{loadError}</p>
-            <button type="button" onClick={onClose} className="mt-4 px-4 py-2 rounded-lg border">Fermer</button>
+            <button type="button" onClick={onClose} className="mt-4 px-4 py-2 rounded-lg border">{t('close')}</button>
           </div>
         ) : (
           <form onSubmit={saveRecord} className="space-y-5">
             <section className="grid md:grid-cols-2 gap-4">
-              <label className="text-sm font-medium">Allergies
-                <textarea value={allergies} onChange={(event) => setAllergies(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900" placeholder="Allergies connues ou ‘Aucune connue’" />
+              <label className="text-sm font-medium">{t('allergies')}
+                <textarea value={allergies} onChange={(event) => setAllergies(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900" placeholder={t('allergiesPlaceholder')} />
               </label>
-              <label className="text-sm font-medium">Antécédents médicaux
-                <textarea value={medicalHistory} onChange={(event) => setMedicalHistory(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900" placeholder="Maladies, opérations, informations importantes" />
+              <label className="text-sm font-medium">{t('medicalHistory')}
+                <textarea value={medicalHistory} onChange={(event) => setMedicalHistory(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900" placeholder={t('medicalHistoryPlaceholder')} />
               </label>
-              <label className="text-sm font-medium md:col-span-2">Traitements actuels
-                <textarea value={currentMedications} onChange={(event) => setCurrentMedications(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900" placeholder="Traitements déclarés par le patient" />
+              <label className="text-sm font-medium md:col-span-2">{t('currentMedications')}
+                <textarea value={currentMedications} onChange={(event) => setCurrentMedications(event.target.value)} rows={2} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900" placeholder={t('currentMedicationsPlaceholder')} />
               </label>
             </section>
 
             <section className="border-t pt-5">
-              <h3 className="font-semibold mb-3">Consultations avec vous</h3>
-              <label className="block text-sm font-medium">Consultation à compléter ou modifier
+              <h3 className="font-semibold mb-3">{t('consultationsWithYou')}</h3>
+              <label className="block text-sm font-medium">{t('selectConsultationToEdit')}
                 <select value={selectedAppointmentId} onChange={(event) => setSelectedAppointmentId(event.target.value)} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900">
                   {appointments.map((item) => (
                     <option key={item._id} value={item._id}>
-                      {format(new Date(item.date), 'dd/MM/yyyy', { locale: fr })} à {item.time} — {item.status}
+                      {format(new Date(item.date), 'dd/MM/yyyy', { locale: fr })} {t('at')} {item.time} — {t(item.status)}
                     </option>
                   ))}
                 </select>
               </label>
-              <p className="text-sm text-gray-500 mt-2">Motif déclaré : {selectedAppointment?.symptoms || 'Non renseigné'}</p>
+              <p className="text-sm text-gray-500 mt-2">{t('reportedReason')}: {selectedAppointment?.symptoms || t('notProvided')}</p>
               {consultations.length > 0 && (
                 <details className="mt-4 rounded-lg border dark:border-gray-700">
                   <summary className="cursor-pointer px-4 py-3 font-medium">
-                    Informations déjà enregistrées ({consultations.length} consultation{consultations.length === 1 ? '' : 's'})
+                    {t('previouslySavedConsultations', { count: consultations.length })}
                   </summary>
                   <div className="border-t dark:border-gray-700 divide-y dark:divide-gray-700">
                     {consultations.map((entry) => (
@@ -194,22 +196,22 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <p className="font-medium">
                             {format(new Date(entry.consultationDate), 'dd/MM/yyyy', { locale: fr })}
-                            {entry.appointmentId && selectedAppointmentId === String(entry.appointmentId) && ' · Consultation affichée'}
+                            {entry.appointmentId && selectedAppointmentId === String(entry.appointmentId) && ` · ${t('displayedConsultation')}`}
                           </p>
                           <button
                             type="button"
                             onClick={() => setSelectedAppointmentId(String(entry.appointmentId))}
                             className="text-sm text-indigo-600 hover:underline"
                           >
-                            Afficher / modifier
+                            {t('viewEdit')}
                           </button>
                         </div>
-                        {entry.diagnosis && <p className="mt-2 text-sm"><strong>Diagnostic :</strong> {entry.diagnosis}</p>}
-                        {entry.treatment && <p className="mt-1 text-sm"><strong>Recommandations :</strong> {entry.treatment}</p>}
-                        {entry.prescriptions?.length > 0 && <p className="mt-1 text-sm"><strong>Ordonnance :</strong> {entry.prescriptions.join(', ')}</p>}
-                        {entry.notes && <p className="mt-1 text-sm whitespace-pre-line"><strong>Notes :</strong> {entry.notes}</p>}
+                        {entry.diagnosis && <p className="mt-2 text-sm"><strong>{t('diagnosis')}:</strong> {entry.diagnosis}</p>}
+                        {entry.treatment && <p className="mt-1 text-sm"><strong>{t('recommendations')}:</strong> {entry.treatment}</p>}
+                        {entry.prescriptions?.length > 0 && <p className="mt-1 text-sm"><strong>{t('prescription')}:</strong> {entry.prescriptions.join(', ')}</p>}
+                        {entry.notes && <p className="mt-1 text-sm whitespace-pre-line"><strong>{t('notes')}:</strong> {entry.notes}</p>}
                         {!entry.diagnosis && !entry.treatment && !entry.notes && !entry.prescriptions?.length && (
-                          <p className="mt-2 text-sm text-gray-500">Aucune note médicale ajoutée pour cette consultation.</p>
+                          <p className="mt-2 text-sm text-gray-500">{t('noMedicalNotes')}</p>
                         )}
                       </div>
                     ))}
@@ -217,24 +219,24 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
                 </details>
               )}
               <div className="grid md:grid-cols-2 gap-4 mt-4">
-                <label className="text-sm font-medium">Diagnostic
+                <label className="text-sm font-medium">{t('diagnosis')}
                   <textarea value={diagnosis} onChange={(event) => setDiagnosis(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900" />
                 </label>
-                <label className="text-sm font-medium">Traitement / recommandations
+                <label className="text-sm font-medium">{t('treatmentRecommendations')}
                   <textarea value={treatment} onChange={(event) => setTreatment(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900" />
                 </label>
-                <label className="text-sm font-medium">Ordonnance (un médicament par ligne)
-                  <textarea value={prescriptions} onChange={(event) => setPrescriptions(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900" placeholder="Médicament et posologie" />
+                <label className="text-sm font-medium">{t('prescriptionPerLine')}
+                  <textarea value={prescriptions} onChange={(event) => setPrescriptions(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900" placeholder={t('medicationAndDosage')} />
                 </label>
-                <label className="text-sm font-medium">Notes de consultation
+                <label className="text-sm font-medium">{t('consultationNotes')}
                   <textarea value={notes} onChange={(event) => setNotes(event.target.value)} rows={3} className="mt-1 w-full rounded-lg border p-3 dark:bg-gray-900" />
                 </label>
               </div>
             </section>
 
             <div className="flex justify-end gap-3 border-t pt-4">
-              <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border">Fermer</button>
-              <button type="submit" disabled={isSaving || appointments.length === 0} className="px-4 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-50 flex items-center gap-2"><Save className="w-4 h-4" />{isSaving ? 'Enregistrement…' : 'Enregistrer la fiche'}</button>
+              <button type="button" onClick={onClose} className="px-4 py-2 rounded-lg border">{t('close')}</button>
+              <button type="submit" disabled={isSaving || appointments.length === 0} className="px-4 py-2 rounded-lg bg-indigo-600 text-white disabled:opacity-50 flex items-center gap-2"><Save className="w-4 h-4" />{isSaving ? t('saving') : t('savePatientRecord')}</button>
             </div>
           </form>
         )}

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Calendar } from './Calendar';
 import { format } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { ar, enUS, fr } from 'date-fns/locale';
 import { Doctor, Appointment } from '../types';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -69,6 +69,18 @@ const symptomsBySpeciality: Record<string, string[]> = {
     'Vertiges',
   ],
 };
+const symptomTranslationKeys: Record<string, string> = {
+  'Mal de dents': 'symptomToothache', 'Gencives qui saignent': 'symptomBleedingGums', 'Dents sensibles': 'symptomSensitiveTeeth',
+  'Douleur à la mâchoire': 'symptomJawPain', 'Mauvaise haleine': 'symptomBadBreath', Fièvre: 'symptomFever', Fatigue: 'symptomFatigue',
+  'Maux de tête': 'symptomHeadache', Toux: 'symptomCough', 'Maux de gorge': 'symptomSoreThroat', 'Douleurs musculaires': 'symptomMusclePain',
+  Palpitations: 'symptomPalpitations', 'Douleur thoracique': 'symptomChestPain', Essoufflement: 'symptomBreathlessness', Étourdissements: 'symptomDizziness',
+  'Fatigue inhabituelle': 'symptomUnusualFatigue', 'Éruption cutanée': 'symptomRash', Démangeaisons: 'symptomItching', Acné: 'symptomAcne',
+  'Taches pigmentées': 'symptomPigmentation', 'Peau sèche': 'symptomDrySkin', Vomissements: 'symptomVomiting', Diarrhée: 'symptomDiarrhea',
+  'Vision floue': 'symptomBlurredVision', 'Yeux rouges': 'symptomRedEyes', 'Douleur oculaire': 'symptomEyePain', 'Sensibilité à la lumière': 'symptomLightSensitivity',
+  'Mouches volantes': 'symptomFloaters', 'Douleur articulaire': 'symptomJointPain', 'Douleur au dos': 'symptomBackPain', Entorse: 'symptomSprain',
+  'Raideur musculaire': 'symptomMuscleStiffness', Fracture: 'symptomFracture', 'Mal d’oreille': 'symptomEarache', 'Nez bouché': 'symptomBlockedNose',
+  'Perte d’audition': 'symptomHearingLoss', Vertiges: 'symptomVertigo',
+};
 
 interface BookingModalProps {
   isOpen: boolean;
@@ -77,7 +89,8 @@ interface BookingModalProps {
 }
 
 export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
-  const { t } = useTranslation();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
   const [selectedSymptoms, setSelectedSymptoms] = useState<string[]>([]);
@@ -122,7 +135,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
           fetch(`http://localhost:3000/api/users/doctors/${doctor._id}/available-slots?startDate=${startDate}&endDate=${endDate}`),
         ]);
         if (!appointmentsResponse.ok || !slotsResponse.ok) {
-          throw new Error('Erreur lors de la récupération des disponibilités.');
+          throw new Error(t('errorFetchAvailability'));
         }
 
         const [appointmentsData, slotsData] = await Promise.all([
@@ -130,7 +143,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
           slotsResponse.json(),
         ]);
         if (!Array.isArray(appointmentsData.appointments)) {
-          throw new Error('Les rendez-vous reçus ne sont pas dans un format valide.');
+          throw new Error(t('invalidAppointmentsResponse'));
         }
         if (!isActive) return;
         setAppointments(appointmentsData.appointments);
@@ -163,7 +176,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
 
     const bookingDateKey = format(selectedDate, 'yyyy-MM-dd');
     if (blockedPeriods.some((period) => bookingDateKey >= period.startDate && bookingDateKey <= period.endDate)) {
-      toast.error('Le médecin est absent ce jour-là. Choisissez une autre date.');
+      toast.error(t('doctorAbsentDay'));
       setSelectedTime(null);
       return;
     }
@@ -173,12 +186,12 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
     const patientId = user?.id || user?.data?.id;
 
     if (!patientId) {
-      toast.error('Utilisateur non reconnu. Veuillez vous reconnecter.');
+      toast.error(t('userNotRecognized'));
       return;
     }
 
     if (!selectedTime || selectedSymptoms.length === 0) {
-      toast.error('Veuillez sélectionner une heure et au moins un symptôme.');
+      toast.error(t('selectTimeAndSymptom'));
       return;
     }
 
@@ -194,7 +207,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
     );
 
     if (isBooked) {
-      toast.error('Ce créneau est déjà réservé ou indisponible. Veuillez en choisir un autre.');
+      toast.error(t('slotAlreadyUnavailable'));
       return;
     }
 
@@ -217,15 +230,15 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
 
       const data = await response.json();
       if (!response.ok) {
-        throw new Error(data.message || 'Erreur lors de la prise de rendez-vous.');
+        throw new Error(data.message || t('bookingError'));
       }
 
       console.log('Rendez-vous créé:', data);
-      toast.success('Rendez-vous confirmé avec succès !');
+      toast.success(data.message || t('appointmentBooked'));
       handleClose();
     } catch (error) {
       console.error('Erreur:', error);
-      toast.error(error.message || 'Une erreur est survenue. Veuillez réessayer.');
+      toast.error(error instanceof Error ? error.message : t('errorTryAgain'));
     }
   };
 
@@ -233,7 +246,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
     if (joiningWaitlist || waitlistJoined) return;
     const token = localStorage.getItem('token');
     if (!token) {
-      toast.error('Connectez-vous pour rejoindre la liste d’attente.');
+      toast.error(t('loginForWaitlist'));
       return;
     }
     setJoiningWaitlist(true);
@@ -244,11 +257,11 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
         body: JSON.stringify({ doctorId: doctor._id, date: format(selectedDate, 'yyyy-MM-dd'), symptoms: selectedSymptoms.join(', ') }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Impossible de rejoindre la liste d’attente.');
+      if (!response.ok) throw new Error(data.error || t('waitlistJoinError'));
       setWaitlistJoined(true);
-      toast.success(data.message || 'Vous êtes inscrit sur la liste d’attente.');
+      toast.success(data.message || t('waitlistJoined'));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Impossible de rejoindre la liste d’attente.');
+      toast.error(error instanceof Error ? error.message : t('waitlistJoinError'));
     } finally {
       setJoiningWaitlist(false);
     }
@@ -331,7 +344,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
         <button
           onClick={handleClose}
           className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-          aria-label="Fermer"
+          aria-label={t('close')}
         >
           <X className="w-6 h-6" />
         </button>
@@ -357,12 +370,12 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
           {(selectedDateIsBlocked || !hasFreeSlot) && (
             <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40">
               <h3 className="text-sm font-semibold text-amber-950 dark:text-amber-100">
-                Suggestions de créneaux proches
+                {t('nearestSuggestions')}
               </h3>
               <p className="mt-1 text-sm text-amber-900 dark:text-amber-200">
                 {selectedDateIsBlocked
-                  ? 'Cette journée est bloquée. Voici les prochaines disponibilités du médecin.'
-                  : 'Aucun créneau libre à cette date. Voici les prochaines disponibilités du médecin.'}
+                  ? t('blockedDaySuggestion')
+                  : t('noFreeSlotSuggestion')}
               </p>
               {nearestOpenSlots.length > 0 ? (
                 <div className="mt-3 flex flex-wrap gap-2">
@@ -376,13 +389,13 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
                       }}
                       className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50 dark:border-amber-700 dark:bg-gray-800 dark:text-indigo-300 dark:hover:bg-gray-700"
                     >
-                      {format(slot.dateTime, 'EEE d MMM', { locale: fr })} · {slot.time}
+                      {format(slot.dateTime, 'EEE d MMM', { locale: dateLocale })} · {slot.time}
                     </button>
                   ))}
                 </div>
               ) : (
                 <p className="mt-3 text-sm text-amber-900 dark:text-amber-200">
-                  Aucun autre créneau libre dans les 14 prochains jours.
+                  {t('noOtherSlots')}
                 </p>
               )}
             </div>
@@ -402,7 +415,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
                       onChange={() => handleSymptomChange(symptom)}
                       className="h-4 w-4 text-indigo-600 focus:ring-indigo-500 border-gray-300 rounded"
                     />
-                    <span className="text-sm text-gray-700">{symptom}</span>
+                    <span className="text-sm text-gray-700">{t(symptomTranslationKeys[symptom] || symptom)}</span>
                   </label>
                 ))}
               </div>
@@ -427,14 +440,14 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
 
           {hasScheduledSlots && !hasFreeSlot && (
             <div className="flex items-center justify-between gap-3 rounded-lg bg-indigo-50 p-4 text-sm text-indigo-900 dark:bg-indigo-950 dark:text-indigo-100">
-              <span>Aucun créneau libre à cette date ? Inscrivez-vous pour être prévenu si une place se libère.</span>
+              <span>{t('noFreeSlotWaitlist')}</span>
               <button
                 type="button"
                 onClick={handleJoinWaitlist}
                 disabled={joiningWaitlist || waitlistJoined}
                 className="shrink-0 rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
               >
-                {joiningWaitlist ? 'Inscription…' : waitlistJoined ? 'Inscrit' : 'Liste d’attente'}
+                {joiningWaitlist ? t('joining') : waitlistJoined ? t('joined') : t('waitlist')}
               </button>
             </div>
           )}

@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { ar, enUS, fr } from 'date-fns/locale';
 import { Calendar as CalendarIcon, Plus, X, Ban, Repeat } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/auth';
 import { Appointment } from '../types';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface AvailabilityManagerProps {
   onUpdateAvailability: (availability: { [key: string]: string[] }) => void;
@@ -31,8 +32,10 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
   const [selectedAbsence, setSelectedAbsence] = useState<DoctorAbsence | null>(null);
   const [isCancellingAbsence, setIsCancellingAbsence] = useState(false);
   const { user } = useAuthStore();
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
 
-  const startDate = startOfWeek(new Date(), { locale: fr });
+  const startDate = startOfWeek(new Date(), { locale: dateLocale });
   const weekDays = [...Array(35)].map((_, i) => addDays(startDate, i));
 
   const timeSlots = [
@@ -48,7 +51,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
 
     if (!userId || !token) {
       console.error('User ID or token is missing', { userId, token });
-      toast.error('Utilisateur non authentifié.');
+      toast.error(t('authenticationRequired'));
       return;
     }
 
@@ -82,13 +85,13 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
           }
         } else {
           console.error('Failed to fetch availability:', data.error || 'Unknown error');
-          toast.error('Impossible de charger les disponibilités.');
+          toast.error(t('availabilityLoadError'));
           setAvailability({});
           onUpdateAvailability({});
         }
       } catch (error) {
         console.error('Error fetching availability:', error);
-        toast.error('Erreur lors du chargement des disponibilités.');
+        toast.error(t('availabilityLoadError'));
         setAvailability({});
         onUpdateAvailability({});
       }
@@ -135,16 +138,16 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
 
       if (response.ok) {
         console.log('Disponibilité mise à jour avec succès.');
-        toast.success('Disponibilité mise à jour.');
+        toast.success(t('availabilityUpdated'));
       } else {
         console.error('Erreur lors de la mise à jour de la disponibilité:', data.error);
-        toast.error(data.error || 'Erreur lors de la mise à jour de la disponibilité.');
+        toast.error(data.error || t('availabilityUpdateError'));
         setAvailability(availability);
         onUpdateAvailability(availability);
       }
     } catch (error) {
       console.error('Erreur lors de la mise à jour de la disponibilité:', error);
-      toast.error('Erreur serveur lors de la mise à jour de la disponibilité.');
+      toast.error(t('availabilityUpdateError'));
       setAvailability(availability);
       onUpdateAvailability(availability);
     }
@@ -173,17 +176,15 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
         body: JSON.stringify({ startDate: absenceStartDate, endDate: absenceEndDate, reason: absenceReason.trim() }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Impossible d’enregistrer cette absence.');
+      if (!response.ok) throw new Error(data.error || t('absenceSaveError'));
       setAvailability(data.availability || {});
       onUpdateAvailability(data.availability || {});
       if (data.absence) setAbsences((current) => [...current, data.absence]);
       setIsAbsenceModalOpen(false);
       const count = Number(data.cancelledAppointments) || 0;
-      toast.success(count
-        ? `Absence enregistrée. ${count} patient${count > 1 ? 's ont été prévenus' : ' a été prévenu'}.`
-        : 'Période d’absence enregistrée.');
+      toast.success(count ? t('absenceSavedPatients', { count }) : t('absenceSaved'));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Impossible d’enregistrer cette absence.');
+      toast.error(error instanceof Error ? error.message : t('absenceSaveError'));
     } finally {
       setIsSavingAbsence(false);
     }
@@ -198,14 +199,14 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
         headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Impossible d’annuler ce blocage.');
+      if (!response.ok) throw new Error(data.error || t('cancelBlockError'));
       setAvailability(data.availability || {});
       onUpdateAvailability(data.availability || {});
       setAbsences((current) => current.filter((absence) => absence._id !== selectedAbsence._id));
       setSelectedAbsence(null);
-      toast.success(data.message || 'Blocage annulé.');
+      toast.success(data.message || t('blockCancelled'));
     } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'Impossible d’annuler ce blocage.');
+      toast.error(error instanceof Error ? error.message : t('cancelBlockError'));
     } finally {
       setIsCancellingAbsence(false);
     }
@@ -215,7 +216,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const template = availability[dateKey] || [];
     if (template.length === 0) {
-      toast.error('Ajoutez d’abord des créneaux à cette journée.');
+      toast.error(t('addSlotsBeforeRepeat'));
       return;
     }
 
@@ -233,7 +234,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     }
 
     if (copiedDays === 0) {
-      toast.error('Aucun jour libre à mettre à jour dans les quatre prochaines semaines.');
+      toast.error(t('noRepeatableDays'));
       return;
     }
 
@@ -250,12 +251,12 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
         body: JSON.stringify({ availability: updatedAvailability }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Impossible de répéter les disponibilités.');
-      toast.success(`Disponibilités répétées sur ${copiedDays} semaines.`);
+      if (!response.ok) throw new Error(data.error || t('repeatAvailabilityError'));
+      toast.success(t('availabilityRepeated', { count: copiedDays }));
     } catch (error) {
       setAvailability(previousAvailability);
       onUpdateAvailability(previousAvailability);
-      toast.error((error as Error).message);
+      toast.error(error instanceof Error ? error.message : t('repeatAvailabilityError'));
     }
   };
 
@@ -306,7 +307,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     <div className="bg-white dark:bg-gray-900 border rounded-xl shadow-lg p-6">
       <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
         <CalendarIcon className="w-6 h-6 text-indigo-600" />
-        Gérer vos disponibilités
+        {t('manageAvailability')}
       </h2>
 
       <div className="grid grid-cols-7 gap-2 mb-6">
@@ -320,18 +321,19 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
                 ? "bg-red-600 text-white hover:bg-red-700"
                 : format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
                 ? "bg-indigo-600 text-white"
-                : "hover:bg-indigo-50"
+                : "hover:bg-indigo-50 dark:hover:bg-gray-700",
+              isSameDay(date, new Date()) && "border border-indigo-600"
             )}
           >
-            <div className="text-xs mb-1">{format(date, 'EEE', { locale: fr })}</div>
-            <div>{format(date, 'd', { locale: fr })}</div>
+            <div className="text-xs mb-1">{format(date, 'EEE', { locale: dateLocale })}</div>
+            <div>{format(date, 'd', { locale: dateLocale })}</div>
           </button>
         ))}
       </div>
 
       <div className="flex justify-between items-center mb-4">
         <h3 className="text-lg font-medium">
-          Créneaux pour le {format(selectedDate, 'EEEE d MMMM', { locale: fr })}
+          {t('slotsForDate', { date: format(selectedDate, 'EEEE d MMMM', { locale: dateLocale }) })}
         </h3>
         <div className="flex gap-2">
           <button
@@ -339,14 +341,14 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
             className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 text-sm"
           >
             <Repeat className="w-4 h-4" />
-            Répéter 4 semaines
+            {t('repeat4Weeks')}
           </button>
           <button
             onClick={openAbsenceModal}
             className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 text-sm"
           >
             <Ban className="w-4 h-4" />
-            Bloquer une période
+            {t('blockPeriod')}
           </button>
         </div>
       </div>
@@ -389,7 +391,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
               </button>
               {isBooked && !blockedAbsence && patientName && (
                 <div className="absolute z-10 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
-                  Patient: {patientName}
+                  {t('patient')}: {patientName}
                 </div>
               )}
             </div>
@@ -400,34 +402,34 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4" role="presentation">
           <form onSubmit={saveAbsence} className="w-full max-w-lg rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="doctor-absence-title">
             <h3 id="doctor-absence-title" className="text-xl font-semibold text-gray-900 dark:text-white">
-              Planifier une absence
+              {t('scheduleAbsence')}
             </h3>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-              Les rendez-vous de cette période seront annulés et les disponibilités retirées. Chaque patient recevra le choix entre reprogrammer ou garder l’annulation.
+              {t('absenceImpact')}
             </p>
             <p className="mt-2 text-sm font-medium text-gray-800 dark:text-gray-100">
-              {affectedAppointmentsCount} rendez-vous concerné{affectedAppointmentsCount > 1 ? 's' : ''}.
+              {t('affectedAppointmentsCount', { count: affectedAppointmentsCount })}
             </p>
             <div className="mt-4 grid gap-4 sm:grid-cols-2">
               <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                Du
+                {t('from')}
                 <input type="date" required min={format(new Date(), 'yyyy-MM-dd')} value={absenceStartDate} onChange={(event) => setAbsenceStartDate(event.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
               </label>
               <label className="text-sm font-medium text-gray-700 dark:text-gray-200">
-                Au
+                {t('to')}
                 <input type="date" required min={absenceStartDate || format(new Date(), 'yyyy-MM-dd')} value={absenceEndDate} onChange={(event) => setAbsenceEndDate(event.target.value)} className="mt-1 w-full rounded-lg border border-gray-300 p-2 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
               </label>
             </div>
             <label htmlFor="absence-reason" className="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-200">
-              Motif (facultatif)
+              {t('optionalReason')}
             </label>
-            <textarea id="absence-reason" value={absenceReason} onChange={(event) => setAbsenceReason(event.target.value)} maxLength={300} rows={3} placeholder="Ex. congé, formation, indisponibilité personnelle" className="mt-1 w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
+            <textarea id="absence-reason" value={absenceReason} onChange={(event) => setAbsenceReason(event.target.value)} maxLength={300} rows={3} placeholder={t('absenceReasonPlaceholder')} className="mt-1 w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white" />
             <div className="mt-6 flex justify-end gap-3">
               <button type="button" disabled={isSavingAbsence} onClick={() => setIsAbsenceModalOpen(false)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
-                Retour
+                {t('back')}
               </button>
               <button type="submit" disabled={isSavingAbsence || !absenceStartDate || !absenceEndDate || absenceStartDate > absenceEndDate} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-50">
-                {isSavingAbsence ? 'Enregistrement…' : 'Confirmer et prévenir les patients'}
+                {isSavingAbsence ? t('saving') : t('confirmAndNotifyPatients')}
               </button>
             </div>
           </form>
@@ -437,21 +439,21 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
         <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 px-4" role="presentation">
           <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="cancel-block-title">
             <h3 id="cancel-block-title" className="text-xl font-semibold text-gray-900 dark:text-white">
-              Période bloquée
+              {t('blockedPeriod')}
             </h3>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-              Du {format(new Date(`${selectedAbsence.startDate}T00:00:00`), 'dd/MM/yyyy')} au {format(new Date(`${selectedAbsence.endDate}T00:00:00`), 'dd/MM/yyyy')}.
+              {t('dateRange', { start: format(new Date(`${selectedAbsence.startDate}T00:00:00`), 'P', { locale: dateLocale }), end: format(new Date(`${selectedAbsence.endDate}T00:00:00`), 'P', { locale: dateLocale }) })}
             </p>
-            {selectedAbsence.reason && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">Motif : {selectedAbsence.reason}</p>}
+            {selectedAbsence.reason && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">{t('reason')}: {selectedAbsence.reason}</p>}
             <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
-              Voulez-vous conserver le blocage ou l’annuler et restaurer les créneaux encore libres ?
+              {t('cancelBlockPrompt')}
             </p>
             <div className="mt-6 flex justify-end gap-3">
               <button type="button" disabled={isCancellingAbsence} onClick={() => setSelectedAbsence(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
-                Garder le blocage
+                {t('keepBlock')}
               </button>
               <button type="button" disabled={isCancellingAbsence} onClick={cancelAbsence} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-50">
-                {isCancellingAbsence ? 'Annulation…' : 'Annuler le blocage'}
+                {isCancellingAbsence ? t('cancelling') : t('cancelBlock')}
               </button>
             </div>
           </div>

@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Bell, Calendar, Clock, AlertCircle } from 'lucide-react';
 
 interface Notification {
@@ -22,18 +23,19 @@ interface NotificationsProps {
 }
 
 export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, onRescheduleAppointment, onKeepCancellation }: NotificationsProps) {
+  const { t } = useTranslation();
   return (
     <div className="relative ">
       <div className="absolute right-0 w-96 mt-2 bg-white rounded-xl shadow-lg z-50 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
         <div className="p-4 border-b border-gray-100">
           <h3 className="text-lg font-semibold flex items-center gap-2">
             <Bell className="w-5 h-5 text-indigo-600" />
-            Notifications
+            {t('notification')}
           </h3>
         </div>
         <div className="max-h-96 overflow-y-auto">
           {notifications.length === 0 && (
-            <p className="p-5 text-sm text-gray-500">Aucune notification pour le moment.</p>
+            <p className="p-5 text-sm text-gray-500">{t('noNotifications')}</p>
           )}
           {notifications.map((notification) => (
             <div
@@ -73,7 +75,7 @@ export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, 
                       }}
                       className="mt-2 rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
                     >
-                      Confirmer ce créneau
+                      {t('confirmSlot')}
                     </button>
                   )}
                   {notification.action === 'reschedule_appointment' && notification.doctorId && (
@@ -86,7 +88,7 @@ export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, 
                         }}
                         className="rounded-lg bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-700"
                       >
-                        Choisir un autre créneau
+                        {t('chooseAnotherSlot')}
                       </button>
                       <button
                         type="button"
@@ -96,7 +98,7 @@ export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, 
                         }}
                         className="rounded-lg border border-gray-300 px-3 py-1.5 text-sm font-medium text-gray-700 hover:bg-gray-50 dark:border-gray-500 dark:text-gray-200 dark:hover:bg-gray-600"
                       >
-                        Garder l’annulation
+                        {t('keepCancellation')}
                       </button>
                     </div>
                   )}

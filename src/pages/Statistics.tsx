@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { format, parseISO } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { ar, enUS, fr } from 'date-fns/locale';
 import { TrendingUp, Users, AlertTriangle, BarChart as BarChartIcon, Clock, UserCheck, PieChart as PieChartIcon } from 'lucide-react';
 import {
   AreaChart,
@@ -27,6 +27,7 @@ import 'react-date-range/dist/styles.css';
 import 'react-date-range/dist/theme/default.css';
 import Papa from 'papaparse';
 import jsPDF from 'jspdf';
+import { useTranslation } from 'react-i18next';
 
 type TimeRange = 'day' | 'week' | 'month' | 'quarter' | 'year' | 'custom';
 type StatType = 'revenue' | 'patients';
@@ -49,13 +50,14 @@ interface PeakHour {
 }
 
 const CustomTooltip = ({ active, payload, label, statType }: any) => {
+  const { t } = useTranslation();
   if (active && payload && payload.length) {
     const value = payload[0].value;
     return (
       <div className="bg-white dark:bg-gray-800 p-4 rounded-lg shadow-lg border border-gray-200 dark:border-gray-700">
         <p className="text-gray-900 dark:text-white font-semibold">{label}</p>
         <p className="text-indigo-600 dark:text-indigo-400">
-          {statType === 'revenue' ? `${value.toLocaleString('fr-FR')} DT` : `${value} patients`}
+          {statType === 'revenue' ? `${value.toLocaleString()} DT` : t('patientCount', { count: value })}
         </p>
       </div>
     );
@@ -66,6 +68,8 @@ const CustomTooltip = ({ active, payload, label, statType }: any) => {
 const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444'];
 
 export function Statistics() {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
   console.log('Statistics component rendering');
 
   const { user } = useAuthStore();
@@ -99,7 +103,7 @@ export function Statistics() {
       setError(null);
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('Token d’authentification manquant');
+        throw new Error(t('authenticationTokenMissing'));
       }
 
       let url = `http://localhost:3000/api/appointments/doctor/${doctorId}/stats?timeRange=${timeRange}&statusFilter=${statusFilter}`;
@@ -115,14 +119,14 @@ export function Statistics() {
 
       if (!response.ok) {
         const errorData = await response.json();
-        throw new Error(errorData.error || 'Échec du chargement des statistiques');
+        throw new Error(errorData.error || t('statisticsLoadError'));
       }
 
       const data = await response.json();
       //console.log('Fetched stats:', data);
 
       if (!Array.isArray(data.stats)) {
-        throw new Error('Les statistiques reçues ne sont pas dans un format valide');
+        throw new Error(t('statisticsInvalidResponse'));
       }
 
       const formattedStats = data.stats.map((stat: DailyStats) => {
@@ -158,7 +162,7 @@ console.log('Statistics component, doctorId:', doctorId);
 useEffect(() => {
     //console.log('Statistics useEffect triggered, doctorId:', doctorId, 'timeRange:', timeRange);
     if (!doctorId) {
-      setError('Utilisateur non authentifié');
+      setError(t('authenticationRequired'));
       setIsLoading(false);
       return;
     }
@@ -174,7 +178,7 @@ useEffect(() => {
     try {
       const token = localStorage.getItem('token');
       if (!token) {
-        throw new Error('Token d’authentification manquant');
+        throw new Error(t('authenticationTokenMissing'));
       }
 
       const response = await fetch(
@@ -189,7 +193,7 @@ useEffect(() => {
       if (!response.ok) {
         const errorData = await response.json();
         throw new Error(
-          errorData.error || 'Échec du chargement des rendez-vous historiques'
+          errorData.error || t('historyLoadError')
         );
       }
 
@@ -198,7 +202,7 @@ useEffect(() => {
 
       if (!Array.isArray(data.appointments)) {
         throw new Error(
-          'Les rendez-vous historiques reçus ne sont pas dans un format valide'
+          t('historyInvalidResponse')
         );
       }
 
@@ -275,19 +279,19 @@ useEffect(() => {
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(16);
-    doc.text('Rapport Statistique', 20, 20);
+    doc.text(t('statisticsReport'), 20, 20);
     doc.setFontSize(12);
-    doc.text(`Période: ${timeRange === 'custom' ? `${format(dateRange.startDate, 'dd MMM yyyy', { locale: fr })} - ${format(dateRange.endDate, 'dd MMM yyyy', { locale: fr })}` : timeRange}`, 20, 30);
-    doc.text(`Revenus totaux: ${data.totalExpenses}`, 20, 40);
+    doc.text(`${t('period')}: ${timeRange === 'custom' ? `${format(dateRange.startDate, 'dd MMM yyyy', { locale: dateLocale })} - ${format(dateRange.endDate, 'dd MMM yyyy', { locale: dateLocale })}` : t(timeRange)}`, 20, 30);
+    doc.text(`${t('totalRevenue')}: ${data.totalExpenses}`, 20, 40);
     /*doc.text(`Revenus totaux: ${getStatValue('revenue')}`, 20, 40);*/
-    doc.text(`Patients traités: ${getStatValue('patients')}`, 20, 50);
-    doc.text(`Taux de no-shows: ${noShowRate.toFixed(2)}%`, 20, 60);
-    doc.text(`Patients récurrents: ${recurrentPatients}`, 20, 70);
-    doc.text(`Heures de pointe: ${peakHours.map((h) => `${h.time} (${h.count})`).join(', ')}`, 20, 80);
+    doc.text(`${t('patientsSeen')}: ${getStatValue('patients')}`, 20, 50);
+    doc.text(`${t('noShowRate')}: ${noShowRate.toFixed(2)}%`, 20, 60);
+    doc.text(`${t('returningPatients')}: ${recurrentPatients}`, 20, 70);
+    doc.text(`${t('peakHours')}: ${peakHours.map((h) => `${h.time} (${h.count})`).join(', ')}`, 20, 80);
 
     let y = 90;
     stats.forEach((stat, index) => {
-      doc.text(`Date: ${stat.date}, Patients: ${stat.patients}, Revenus: ${stat.revenue} DT`, 20, y + index * 10);
+      doc.text(`${t('date')}: ${stat.date}, ${t('patients')}: ${stat.patients}, ${t('revenue')}: ${stat.revenue} DT`, 20, y + index * 10);
     });
 
     doc.save(`statistiques_${timeRange}.pdf`);
@@ -302,7 +306,7 @@ useEffect(() => {
     return (
       <div className="container mx-auto px-4 py-8">
         <h1 className="text-3xl font-bold text-gray-900 dark:text-white mb-8">
-          Statistiques
+          {t('statistics')}
         </h1>
         <div className="bg-red-50 dark:bg-red-900 rounded-lg p-6">
           <p className="text-red-600 dark:text-red-400">{error}</p>
@@ -317,20 +321,20 @@ useEffect(() => {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
           <div className="flex justify-between items-center mb-8">
             <h1 className="text-3xl font-bold text-gray-900 dark:text-white">
-              Statistiques
+              {t('statistics')}
             </h1>
             <div className="flex gap-2">
               <button
                 onClick={exportToCSV}
                 className="px-4 py-2 bg-blue-600 text-white rounded-full hover:bg-blue-700"
               >
-                Exporter CSV
+                {t('exportCSV')}
               </button>
               <button
                 onClick={exportToPDF}
                 className="px-4 py-2 bg-green-600 text-white rounded-full hover:bg-green-700"
               >
-                Exporter PDF
+                {t('exportPDF')}
               </button>
             </div>
           </div>
@@ -346,19 +350,19 @@ useEffect(() => {
               }}
               className="px-3 py-1 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
-              <option value="day">Derniers 7 jours</option>
-              <option value="week">Dernière semaine</option>
-              <option value="month">Dernier mois</option>
-              <option value="quarter">Dernier trimestre</option>
-              <option value="year">Dernière année</option>
-              <option value="custom">Personnalisé</option>
+              <option value="day">{t('last7Days')}</option>
+              <option value="week">{t('lastWeek')}</option>
+              <option value="month">{t('lastMonth')}</option>
+              <option value="quarter">{t('lastQuarter')}</option>
+              <option value="year">{t('lastYear')}</option>
+              <option value="custom">{t('custom')}</option>
             </select>
             {timeRange === 'custom' && (
               <button
                 onClick={() => setIsDateRangePickerOpen(!isDateRangePickerOpen)}
                 className="px-3 py-1 bg-indigo-600 text-white rounded-lg text-sm hover:bg-indigo-700"
               >
-                Choisir dates
+                {t('chooseDates')}
               </button>
             )}
             <select
@@ -366,19 +370,19 @@ useEffect(() => {
               onChange={(e) => setStatusFilter(e.target.value as StatusFilter)}
               className="px-3 py-1 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
-              <option value="all">Tous</option>
-              <option value="pending">En attente</option>
-              <option value="accepted">Acceptés</option>
-              <option value="completed">Terminés</option>
-              <option value="cancelled">Annulés</option>
+              <option value="all">{t('all')}</option>
+              <option value="pending">{t('pending')}</option>
+              <option value="accepted">{t('accepted')}</option>
+              <option value="completed">{t('completed')}</option>
+              <option value="cancelled">{t('cancelled')}</option>
             </select>
             <select
               value={statType}
               onChange={(e) => setStatType(e.target.value as StatType)}
               className="px-3 py-1 border rounded-lg text-sm dark:bg-gray-700 dark:border-gray-600 dark:text-white"
             >
-              <option value="revenue">Revenus</option>
-              <option value="patients">Patients</option>
+              <option value="revenue">{t('revenue')}</option>
+              <option value="patients">{t('patients')}</option>
             </select>
           </div>
 
@@ -387,7 +391,7 @@ useEffect(() => {
               <DateRangePicker
                 ranges={[dateRange]}
                 onChange={handleDateRangeSelect}
-                locale={fr}
+                locale={dateLocale}
               />
             </div>
           )}
@@ -401,57 +405,57 @@ useEffect(() => {
               <div className="bg-green-50 dark:bg-green-900 rounded-lg p-6">
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                   <TrendingUp className="w-5 h-5 text-green-600 dark:text-green-400" />
-                  Revenus{' '}
+                  {t('revenue')} {' '}
                   {timeRange === 'month'
-                    ? 'mensuels'
+                    ? t('monthly')
                     : timeRange === 'year'
-                    ? 'annuels'
+                    ? t('yearly')
                     : timeRange === 'week'
-                    ? 'hebdomadaires'
+                    ? t('weekly')
                     : timeRange === 'quarter'
-                    ? 'trimestriels'
+                    ? t('quarterly')
                     : timeRange === 'day'
-                    ? 'journaliers'
-                    : 'personnalisés'}
+                    ? t('daily')
+                    : t('custom').toLowerCase()}
                 </h2>
                 <div className="text-2xl font-bold text-green-600 dark:text-green-400">
                   {getStatValue('revenue')}
                 </div>
                 <p className="text-gray-600 dark:text-gray-300">
-                  de consultations
+                  {t('fromConsultations')}
                 </p>
               </div>
 
               <div className="bg-blue-50 dark:bg-blue-900 rounded-lg p-6">
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                   <Users className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-                  Patients
+                  {t('patients')}
                 </h2>
                 <div className="text-2xl font-bold text-blue-600 dark:text-blue-400">
                   {getStatValue('patients')}
                 </div>
                 <p className="text-gray-600 dark:text-gray-300">
-                  patients traités
+                  {t('patientsSeen')}
                 </p>
               </div>
 
               <div className={`bg-yellow-50 dark:bg-yellow-900 rounded-lg p-6 ${incompleteDetailsCount > 0 ? 'animate-pulse' : ''}`}>
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5 text-yellow-600 dark:text-yellow-400" />
-                  Détails manquants
+                  {t('missingDetails')}
                 </h2>
                 <div className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
                   {incompleteDetailsCount}
                 </div>
                 <p className="text-gray-600 dark:text-gray-300">
-                  rendez-vous sans détails
+                  {t('appointmentsWithoutDetails')}
                 </p>
                 {incompleteDetailsCount > 0 && (
                   <button
                     onClick={openHistoricModal}
                     className="mt-4 px-4 py-2 bg-indigo-600 text-white rounded-full hover:bg-indigo-700"
                   >
-                    Compléter les détails
+                    {t('completeDetails')}
                   </button>
                 )}
               </div>
@@ -459,39 +463,39 @@ useEffect(() => {
               <div className="bg-red-50 dark:bg-red-900 rounded-lg p-6">
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                   <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
-                  Taux de no-shows
+                  {t('noShowRate')}
                 </h2>
                 <div className="text-2xl font-bold text-red-600 dark:text-red-400">
                   {noShowRate.toFixed(2)}%
                 </div>
                 <p className="text-gray-600 dark:text-gray-300">
-                  rendez-vous manqués
+                  {t('missedAppointments')}
                 </p>
               </div>
 
               <div className="bg-purple-50 dark:bg-purple-900 rounded-lg p-6">
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                   <UserCheck className="w-5 h-5 text-purple-600 dark:text-purple-400" />
-                  Patients récurrents
+                  {t('returningPatients')}
                 </h2>
                 <div className="text-2xl font-bold text-purple-600 dark:text-purple-400">
                   {recurrentPatients}
                 </div>
                 <p className="text-gray-600 dark:text-gray-300">
-                  patients revenus
+                  {t('patientsReturned')}
                 </p>
               </div>
 
               <div className="bg-teal-50 dark:bg-teal-900 rounded-lg p-6">
                 <h2 className="text-xl font-semibold mb-4 flex items-center gap-2">
                   <Clock className="w-5 h-5 text-teal-600 dark:text-teal-400" />
-                  Heures de pointe
+                  {t('peakHours')}
                 </h2>
                 <div className="text-2xl font-bold text-teal-600 dark:text-teal-400">
-                  {peakHours.length > 0 ? peakHours.map((h) => h.time).join(', ') : 'Aucune'}
+                  {peakHours.length > 0 ? peakHours.map((h) => h.time).join(', ') : t('none')}
                 </div>
                 <p className="text-gray-600 dark:text-gray-300">
-                  créneaux les plus réservés
+                  {t('mostBookedSlots')}
                 </p>
               </div>
             </div>
@@ -501,7 +505,7 @@ useEffect(() => {
         <div className="bg-white dark:bg-gray-800 rounded-xl shadow-lg p-6">
           <div className="flex justify-between items-center mb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-white">
-              Évolution
+              {t('evolution')}
             </h2>
           </div>
 
@@ -515,10 +519,10 @@ useEffect(() => {
                 <div className="flex flex-col justify-center items-center h-full bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
                   <BarChartIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
                   <p className="text-gray-600 dark:text-gray-300 text-center">
-                    Aucune donnée disponible pour la période sélectionnée.
+                    {t('noPeriodData')}
                   </p>
                   <p className="text-gray-500 dark:text-gray-400 text-sm mt-2">
-                    Essayez de sélectionner une autre période ou vérifiez vos rendez-vous.
+                    {t('tryAnotherPeriod')}
                   </p>
                 </div>
               ) : (
@@ -547,7 +551,7 @@ useEffect(() => {
                       <Area
                         type="monotone"
                         dataKey="revenue"
-                        name="Revenus"
+                        name={t('revenue')}
                         stroke="#4F46E5"
                         fill="#4F46E5"
                         fillOpacity={0.2}
@@ -575,7 +579,7 @@ useEffect(() => {
                       <ReferenceLine x={stats[stats.length - 1]?.date} stroke="#9ca3af" strokeDasharray="3 3" />
                       <Bar
                         dataKey="patients"
-                        name="Patients"
+                        name={t('patients')}
                         fill="#4F46E5"
                         isAnimationActive={true}
                         animationDuration={1000}
@@ -595,7 +599,7 @@ useEffect(() => {
                 <div className="flex flex-col justify-center items-center h-full bg-gray-50 dark:bg-gray-900 rounded-lg p-6">
                   <PieChartIcon className="w-12 h-12 text-gray-400 dark:text-gray-500 mb-4" />
                   <p className="text-gray-600 dark:text-gray-300 text-center">
-                    Aucune donnée de statut disponible.
+                    {t('noStatusData')}
                   </p>
                 </div>
               ) : (
@@ -633,7 +637,7 @@ useEffect(() => {
         isOpen={isDateModalOpen}
         onClose={closeDateModal}
         appointments={selectedDateAppointments}
-        title={`Rendez-vous du ${selectedDateAppointments[0]?.date ? format(parseISO(selectedDateAppointments[0].date), 'dd MMM yyyy', { locale: fr }) : ''}`}
+        title={t('appointmentsForDate', { date: selectedDateAppointments[0]?.date ? format(parseISO(selectedDateAppointments[0].date), 'dd MMM yyyy', { locale: dateLocale }) : '' })}
       />
     </div>
   );

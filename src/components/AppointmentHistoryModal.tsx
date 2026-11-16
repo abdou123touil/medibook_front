@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { Clock, X, Save, Pill } from 'lucide-react';
 import toast from 'react-hot-toast';
+import { useTranslation } from 'react-i18next';
 
 interface Appointment {
   _id: string;
@@ -32,6 +33,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
   onClose,
   appointments,
 }) => {
+  const { t } = useTranslation();
   const [selectedAppointment, setSelectedAppointment] = useState<Appointment | null>(null);
   const [details, setDetails] = useState<AppointmentDetails>({
     tarif: 0,
@@ -84,7 +86,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
           }
         } catch (error) {
           console.error('Erreur lors de la récupération des détails:', error);
-          toast.error('Erreur lors de la récupération des détails des rendez-vous.');
+          toast.error(t('appointmentDetailsLoadError'));
         }
       };
       fetchDetails();
@@ -124,7 +126,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
   // Handle form submission
   const handleSubmitDetails = async (appointmentId: string) => {
     if (!details.tarif || details.medicaments.length === 0 || !details.cause) {
-      toast.error('Veuillez remplir tous les champs.');
+      toast.error(t('fillAllFields'));
       return;
     }
 
@@ -156,7 +158,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
         const errorText = await response.text();
         console.error('Error response:', errorText);
         const errorData = JSON.parse(errorText);
-        throw new Error(errorData.error || 'Erreur lors de l’ajout des détails.');
+        throw new Error(errorData.error || t('appointmentDetailsSaveError'));
       }
 
       const data = await response.json();
@@ -167,10 +169,10 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
       }));
       setDetails({ tarif: 0, medicaments: [], cause: '' });
       setSelectedAppointment(null);
-      toast.success('Détails ajoutés avec succès !');
+      toast.success(t('appointmentDetailsSaved'));
     } catch (error) {
       console.error('Erreur:', error);
-      toast.error((error as Error).message || 'Une erreur est survenue.');
+      toast.error((error as Error).message || t('errorTryAgain'));
     } finally {
       setIsSubmitting(false);
     }
@@ -200,13 +202,13 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
             </button>
             <h2 className="text-2xl font-semibold text-gray-900 dark:text-gray-100 mb-6 flex items-center gap-2">
               <Clock className="w-6 h-6 text-indigo-600" />
-              Historique des Rendez-vous
+              {t('appointmentHistory')}
             </h2>
 
             <div className="space-y-4">
               {appointments.length === 0 ? (
                 <p className="text-gray-500 dark:text-gray-400 text-center dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100 ">
-                  Aucun rendez-vous trouvé.
+                  {t('noAppointmentsFound')}
                 </p>
               ) : (
                 appointments.map((appointment) => (
@@ -223,20 +225,19 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                     <div className="flex justify-between items-start dark:bg-gray-700 dark:border-gray-600 dark:text-gray-100">
                       <div>
                         <h3 className="font-semibold text-gray-900 dark:text-gray-100">
-                          Patient:{' '}
-                          {appointment.patientId?.firstName || 'Nom non disponible'}{' '}
-                          {appointment.patientId?.lastName || 'Prénom non disponible'}
+                          {t('patient')}: {appointment.patientId?.firstName || t('nameNotAvailable')}{' '}
+                          {appointment.patientId?.lastName || t('nameNotAvailable')}
                         </h3>
                         <div className="text-sm text-gray-600 dark:text-gray-400 flex items-center gap-2 mt-1">
                           <Clock className="w-4 h-4" />
-                          {format(new Date(appointment.date), 'PPP', { locale: fr })} à{' '}
+                          {format(new Date(appointment.date), 'PPP', { locale: fr })} {t('at')}{' '}
                           {appointment.time}
                         </div>
                         <p className="mt-2 text-gray-700 dark:text-gray-300">
-                          Symptômes : {appointment.symptoms || 'Non spécifiés'}
+                          {t('symptoms')}: {appointment.symptoms || t('notSpecified')}
                         </p>
                         <p className="mt-1 text-gray-700 dark:text-gray-300">
-                          Statut :{' '}
+                          {t('status')}: {' '}
                           <span
                             className={`font-medium ${
                               appointment.status === 'cancelled'
@@ -246,18 +247,12 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                                 : 'text-blue-600'
                             }`}
                           >
-                            {appointment.status === 'cancelled'
-                              ? 'Annulé'
-                              : appointment.status === 'completed'
-                              ? 'Terminé'
-                              : appointment.status === 'accepted'
-                              ? 'Accepté'
-                              : 'En attente'}
+                            {t(appointment.status)}
                           </span>
                         </p>
                         {appointment.status === 'cancelled' && appointment.cancellationReason && (
                           <p className="mt-2 rounded-md bg-red-100 p-2 text-sm text-red-800 dark:bg-red-900/30 dark:text-red-200">
-                            Motif : {appointment.cancellationReason}
+                            {t('reason')}: {appointment.cancellationReason}
                           </p>
                         )}
                       </div>
@@ -268,16 +263,16 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                         {appointmentDetails[appointment._id] ? (
                           <div className="bg-gray-100 dark:bg-gray-700 p-4 rounded-md">
                             <h4 className="font-semibold text-gray-900 dark:text-gray-100">
-                              Détails du rendez-vous
+                              {t('appointmentDetails')}
                             </h4>
                             <p className="text-sm text-gray-600 dark:text-gray-300">
-                              Tarif : {appointmentDetails[appointment._id].tarif} DT
+                              {t('price')}: {appointmentDetails[appointment._id].tarif} DT
                             </p>
                             <p className="text-sm text-gray-600 dark:text-gray-300">
-                              Cause : {appointmentDetails[appointment._id].cause}
+                              {t('cause')}: {appointmentDetails[appointment._id].cause}
                             </p>
                             <p className="text-sm text-gray-600 dark:text-gray-300">
-                              Médicaments :{' '}
+                              {t('medications')}: {' '}
                               {appointmentDetails[appointment._id].medicaments.join(', ')}
                             </p>
                           </div>
@@ -287,7 +282,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                               onClick={() => setSelectedAppointment(appointment)}
                               className="text-indigo-600 hover:text-indigo-800 dark:text-indigo-400 dark:hover:text-indigo-300 font-medium"
                             >
-                              Ajouter les détails
+                              {t('addDetails')}
                             </button>
                           </div>
                         )}
@@ -297,12 +292,12 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                     {selectedAppointment?._id === appointment._id && (
                       <div className="mt-4 border-t border-gray-200 dark:border-gray-600 pt-4">
                         <h4 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                          Ajouter les détails
+                            {t('addDetails')}
                         </h4>
                         <div className="space-y-4">
                           <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Tarif (DT)
+                              {t('priceDT')}
                             </label>
                             <input
                               type="number"
@@ -315,7 +310,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Cause
+                              {t('cause')}
                             </label>
                             <textarea
                               name="cause"
@@ -327,14 +322,14 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                           </div>
                           <div>
                             <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                              Médicaments
+                              {t('medications')}
                             </label>
                             <div className="flex gap-2">
                               <input
                                 type="text"
                                 value={currentMedicament}
                                 onChange={(e) => setCurrentMedicament(e.target.value)}
-                                placeholder="Ajouter un médicament"
+                              placeholder={t('addMedication')}
                                 className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
                               />
                               <button
@@ -356,7 +351,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                                     onClick={() => handleRemoveMedicament(index)}
                                     className="text-red-500 hover:text-red-700"
                                   >
-                                    Supprimer
+                                    {t('delete')}
                                   </button>
                                 </li>
                               ))}
@@ -371,7 +366,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                               }}
                               className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600"
                             >
-                              Annuler
+                              {t('cancel')}
                             </button>
                             <button
                               type="button"
@@ -380,7 +375,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
                               className="px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 disabled:opacity-50 disabled:cursor-not-allowed flex items-center gap-2"
                             >
                               <Save className="w-5 h-5" />
-                              {isSubmitting ? 'Enregistrement...' : 'Enregistrer'}
+                              {isSubmitting ? t('saving') : t('save')}
                             </button>
                           </div>
                         </div>

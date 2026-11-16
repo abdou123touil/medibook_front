@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { format, addDays, startOfWeek } from 'date-fns';
-import { fr } from 'date-fns/locale';
+import { ar, enUS, fr } from 'date-fns/locale';
 import { Calendar as CalendarIcon, Plus } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/auth';
@@ -12,12 +13,14 @@ interface AppointmentSchedulerProps {
 }
 
 export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedulerProps) {
+  const { t, i18n } = useTranslation();
+  const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [availableSlots, setAvailableSlots] = useState<{ [key: string]: string[] }>({});
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
   const { user } = useAuthStore();
 
-  const startDate = startOfWeek(new Date(), { locale: fr });
+  const startDate = startOfWeek(new Date(), { locale: dateLocale });
   const weekDays = [...Array(14)].map((_, i) => addDays(startDate, i));
 
   // Fetch available slots on mount
@@ -26,7 +29,7 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
       try {
         const token = localStorage.getItem('token');
         if (!token) {
-          toast.error('Veuillez vous connecter pour réserver un rendez-vous.');
+          toast.error(t('errorPleaseLogin'));
           return;
         }
 
@@ -49,16 +52,16 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
           setAvailableSlots(data.availableSlots);
           setRequiresConfirmation(data.requiresConfirmation);
         } else {
-          toast.error(data.error || 'Impossible de charger les créneaux disponibles.');
+          toast.error(data.error || t('errorLoadAvailability'));
         }
       } catch (error) {
         console.error('Error fetching available slots:', error);
-        toast.error('Erreur lors du chargement des créneaux disponibles.');
+        toast.error(t('errorLoadAvailability'));
       }
     };
 
     fetchAvailableSlots();
-  }, [doctorId]);
+  }, [doctorId, t]);
 
   // Book an appointment
   const bookAppointment = async (time: string) => {
@@ -66,7 +69,7 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
       const token = localStorage.getItem('token');
       const patientId = user?.data?.id;
       if (!patientId || !token) {
-        toast.error('Veuillez vous connecter pour réserver un rendez-vous.');
+        toast.error(t('errorPleaseLogin'));
         return;
       }
 
@@ -95,11 +98,11 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
         }));
         toast.success(data.message);
       } else {
-        toast.error(data.error || 'Erreur lors de la réservation.');
+        toast.error(data.error || t('bookingError'));
       }
     } catch (error) {
       console.error('Erreur lors de la réservation:', error);
-      toast.error('Erreur serveur lors de la réservation.');
+      toast.error(t('bookingError'));
     }
   };
 
@@ -110,7 +113,7 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
     <div className="bg-white dark:bg-gray-900 border rounded-xl shadow-lg p-6">
       <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
         <CalendarIcon className="w-6 h-6 text-indigo-600" />
-        Réserver un rendez-vous avec {doctorName}
+        {t('bookWithDoctor', { doctor: doctorName })}
       </h2>
 
       <div className="grid grid-cols-7 gap-2 mb-6">
@@ -125,15 +128,15 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
                 : "hover:bg-indigo-50"
             )}
           >
-            <div className="text-xs mb-1">{format(date, 'EEE', { locale: fr })}</div>
-            <div>{format(date, 'd', { locale: fr })}</div>
+            <div className="text-xs mb-1">{format(date, 'EEE', { locale: dateLocale })}</div>
+            <div>{format(date, 'd', { locale: dateLocale })}</div>
           </button>
         ))}
       </div>
 
       <div>
         <h3 className="text-lg font-medium mb-4">
-          Créneaux disponibles le {format(selectedDate, 'EEEE d MMMM', { locale: fr })}
+          {t('slotsAvailableOn', { date: format(selectedDate, 'EEEE d MMMM', { locale: dateLocale }) })}
         </h3>
         {selectedDateSlots.length > 0 ? (
           <div className="grid grid-cols-4 gap-2">
@@ -152,13 +155,11 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
             ))}
           </div>
         ) : (
-          <p className="text-gray-500">Aucun créneau disponible pour ce jour.</p>
+          <p className="text-gray-500">{t('noSlotsForDay')}</p>
         )}
       </div>
       {requiresConfirmation && (
-        <p className="mt-4 text-sm text-gray-600">
-          Note : Ce médecin nécessite une confirmation manuelle pour les rendez-vous.
-        </p>
+        <p className="mt-4 text-sm text-gray-600">{t('manualConfirmationRequired')}</p>
       )}
     </div>
   );

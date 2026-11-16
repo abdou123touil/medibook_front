@@ -37,7 +37,10 @@ export function Navigation() {
     const storedToken = localStorage.getItem("token");
 
     if (storedUser && storedToken) {
-      setUser(JSON.parse(storedUser));
+      const parsedUser = JSON.parse(storedUser);
+      const normalizedUser = parsedUser.data ? parsedUser : { data: parsedUser };
+      setUser(normalizedUser);
+      if (!parsedUser.data) localStorage.setItem("user", JSON.stringify(normalizedUser));
       setToken(storedToken);
     }
   }, [setUser, setToken]);

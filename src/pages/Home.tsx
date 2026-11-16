@@ -3,7 +3,9 @@ import { ThreeScene } from "../components/ThreeScene";
 import { ArrowRight, Stethoscope, Calendar, UserCircle } from "lucide-react";
 import logo from "../assets/img/logo1.png";
 import { motion } from "framer-motion";
+import { useTranslation } from "react-i18next";
 export function Home() {
+  const { t } = useTranslation();
   return (
     <div className="container mx-auto px-4">
       <section className="py-20 text-center">
@@ -13,11 +15,11 @@ export function Home() {
           transition={{ duration: 0.6, ease: "easeOut" }}
           className="text-5xl dark:text-white font-bold text-gray-900 mb-6 "
         >
-          Votre Santé, Notre Priorité
+          {t('homeTitle')}
         </motion.h1>
 
         <p className="text-xl text-gray-600 mb-8">
-          Prenez rendez-vous avec les meilleurs médecins en quelques clics
+          {t('homeSubtitle')}
         </p>
        
       </section>
@@ -25,25 +27,25 @@ export function Home() {
       <section className="grid md:grid-cols-3 gap-8 py-16">
         <div className="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
           <Stethoscope className="w-12 h-12 text-indigo-600 mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Médecins Spécialistes</h3>
+          <h3 className="text-xl font-semibold mb-2">{t('homeSpecialistsTitle')}</h3>
           <p className="text-gray-600">
-            Accédez à un réseau de médecins qualifiés dans diverses spécialités
+            {t('homeSpecialistsDescription')}
           </p>
         </div>
 
         <div className="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
           <Calendar className="w-12 h-12 text-indigo-600 mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Réservation Simple</h3>
+          <h3 className="text-xl font-semibold mb-2">{t('homeBookingTitle')}</h3>
           <p className="text-gray-600">
-            Réservez votre rendez-vous en ligne 24/7 en quelques étapes
+            {t('homeBookingDescription')}
           </p>
         </div>
 
         <div className="bg-white dark:bg-gray-900 p-8 rounded-xl shadow-lg hover:shadow-xl transition-shadow">
           <UserCircle className="w-12 h-12 text-indigo-600 mb-4" />
-          <h3 className="text-xl font-semibold mb-2">Suivi Personnalisé</h3>
+          <h3 className="text-xl font-semibold mb-2">{t('homeFollowupTitle')}</h3>
           <p className="text-gray-600">
-            Gérez vos rendez-vous et accédez à votre historique médical
+            {t('homeFollowupDescription')}
           </p>
         </div>
       </section>

@@ -5,6 +5,7 @@ import toast from 'react-hot-toast';
 import { UserCircle, MapPin, Briefcase, Lock } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents } from 'react-leaflet';
 import 'leaflet/dist/leaflet.css';
+import { useTranslation } from 'react-i18next';
 
 interface UserProfile {
   _id: string;
@@ -55,6 +56,7 @@ const MapClickHandler: React.FC<{ onClick: (lat: number, lng: number) => void }>
 };
 
 export function Profile() {
+  const { t } = useTranslation();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [spes, setSpes] = useState<string[]>(specialities);
   const [passwordData, setPasswordData] = useState({
@@ -113,7 +115,7 @@ export function Profile() {
         });
       } catch (error) {
         console.error('Erreur:', error);
-        toast.error('Impossible de charger le profil.');
+          toast.error(t('profileLoadError'));
       }
     };
 
@@ -129,7 +131,7 @@ export function Profile() {
         },
         (error) => {
           console.warn('Erreur de géolocalisation:', error.message);
-          toast.error('Impossible de récupérer la position actuelle.');
+          toast.error(t('locationUnavailable'));
         }
       );
     } else {
@@ -172,13 +174,13 @@ export function Profile() {
 
     // Validate new password and confirmation
     if (passwordData.newPassword !== passwordData.confirmNewPassword) {
-      toast.error('Les nouveaux mots de passe ne correspondent pas.');
+      toast.error(t('passwordsDoNotMatch'));
       setPasswordLoading(false);
       return;
     }
 
     if (passwordData.newPassword.length < 8) {
-      toast.error('Le nouveau mot de passe doit contenir au moins 8 caractères.');
+      toast.error(t('passwordMinimumLength'));
       setPasswordLoading(false);
       return;
     }
@@ -202,13 +204,13 @@ export function Profile() {
         throw new Error(errorData.error || 'Erreur lors de la réinitialisation du mot de passe.');
       }
 
-      toast.success('Mot de passe réinitialisé avec succès !');
+      toast.success(t('passwordChanged'));
       setIsPasswordVerified(true);
       setPasswordData({ newPassword: '', confirmNewPassword: '', oldPassword: '' });
       setIsPasswordModalOpen(false);
     } catch (error) {
       console.error('Erreur:', error);
-      toast.error((error as Error).message || 'Une erreur est survenue.');
+      toast.error((error as Error).message || t('errorTryAgain'));
     } finally {
       setPasswordLoading(false);
     }
@@ -275,10 +277,10 @@ export function Profile() {
       const data = await response.json();
       setProfile(data.user);
       setIsPasswordVerified(false); // Reset verification after saving
-      toast.success('Profil mis à jour avec succès !');
+      toast.success(t('profileUpdated'));
     } catch (error) {
       console.error('Erreur:', error);
-      toast.error((error as Error).message || 'Une erreur est survenue.');
+      toast.error((error as Error).message || t('errorTryAgain'));
     } finally {
       setLoading(false);
     }
@@ -287,7 +289,7 @@ export function Profile() {
   if (!profile) {
     return (
       <div className="flex justify-center items-center h-screen bg-gray-100 dark:bg-gray-800">
-        <div className="text-xl font-semibold text-gray-600 dark:text-gray-300">Chargement...</div>
+        <div className="text-xl font-semibold text-gray-600 dark:text-gray-300">{t('loading')}</div>
       </div>
     );
   }
@@ -307,7 +309,7 @@ export function Profile() {
               {profile.profileImage ? (
                 <img
                   src={`data:image/jpeg;base64,${profile.profileImage}`}
-                  alt="Profile"
+                  alt={t('profilePhoto')}
                   className="w-full h-full object-cover"
                 />
               ) : (
@@ -345,7 +347,7 @@ export function Profile() {
             {profile.firstName} {profile.lastName}
           </h1>
           <p className="text-gray-500 dark:text-gray-400">
-            {profile.role === 'doctor' ? 'Médecin' : 'Patient'}
+            {profile.role === 'doctor' ? t('doctor') : t('client')}
           </p>
         </div>
 
@@ -355,12 +357,12 @@ export function Profile() {
           <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-4">
               <UserCircle className="w-6 h-6 text-indigo-600" />
-              Informations personnelles
+              {t('personalInformation')}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Prénom
+                  {t('firstName')}
                 </label>
                 <input
                   type="text"
@@ -373,7 +375,7 @@ export function Profile() {
               </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Nom
+                  {t('lastName')}
                 </label>
                 <input
                   type="text"
@@ -386,7 +388,7 @@ export function Profile() {
               </div>
               <div className="md:col-span-2">
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Numéro de téléphone
+                  {t('phoneNumber')}
                 </label>
                 <input
                   type="tel"
@@ -404,11 +406,11 @@ export function Profile() {
           <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-4">
               <MapPin className="w-6 h-6 text-indigo-600" />
-              Adresse
+              {t('address')}
             </h2>
             <div>
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Adresse
+                {t('address')}
               </label>
               <input
                 type="text"
@@ -421,7 +423,7 @@ export function Profile() {
             </div>
             <div className="mt-4">
               <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Localisation
+                {t('location')}
               </label>
               <MapContainer
                 center={[formData.lat, formData.lng]}
@@ -433,14 +435,14 @@ export function Profile() {
                   attribution='© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
                 />
                 <Marker position={[formData.lat, formData.lng]}>
-                  <Popup>Votre position</Popup>
+                  <Popup>{t('yourLocation')}</Popup>
                 </Marker>
                 <MapClickHandler onClick={handleMapClick} />
               </MapContainer>
               <div className="mt-2 grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Latitude
+                    {t('latitude')}
                   </label>
                   <input
                     type="number"
@@ -452,7 +454,7 @@ export function Profile() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Longitude
+                    {t('longitude')}
                   </label>
                   <input
                     type="number"
@@ -471,12 +473,12 @@ export function Profile() {
             <div className="border-b border-gray-200 dark:border-gray-700 pb-6">
               <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-4">
                 <Briefcase className="w-6 h-6 text-indigo-600" />
-                Spécialité
+                {t('specialty')}
               </h2>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Spécialité
+                    {t('specialty')}
                   </label>
                   <select
                     name="speciality"
@@ -484,7 +486,7 @@ export function Profile() {
                     onChange={handleInputChange}
                     className="mt-1 block w-full rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-800 text-gray-900 dark:text-gray-100 shadow-sm focus:border-indigo-500 focus:ring-indigo-500 py-2 px-3"
                   >
-                    <option value="">{profile.speciality || 'Sélectionner'}</option>
+                    <option value="">{profile.speciality || t('select')}</option>
                     {specialities.map(speciality => (
                       <option key={speciality} value={speciality}>
                         {speciality}
@@ -494,7 +496,7 @@ export function Profile() {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Nom de l'hôpital
+                    {t('hospitalName')}
                   </label>
                   <input
                     type="text"
@@ -512,12 +514,12 @@ export function Profile() {
           <div className="pb-6">
             <h2 className="text-xl font-semibold text-gray-900 dark:text-gray-100 flex items-center gap-2 mb-4">
               <Lock className="w-6 h-6 text-indigo-600" />
-              Sécurité
+              {t('security')}
             </h2>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div>
                 <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                  Adresse e-mail
+                  {t('email')}
                 </label>
                 <input
                   type="email"
@@ -532,7 +534,7 @@ export function Profile() {
                 <div className="grid grid-cols-1 gap-4">
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Nouveau mot de passe
+                      {t('newPassword')}
                     </label>
                     <input
                       type="password"
@@ -544,7 +546,7 @@ export function Profile() {
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                      Confirmer le nouveau mot de passe
+                      {t('confirmNewPassword')}
                     </label>
                     <input
                       type="password"
@@ -561,7 +563,7 @@ export function Profile() {
                     onClick={() => setIsPasswordModalOpen(true)}
                     className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors"
                   >
-                    Changer le mot de passe
+                    {t('changePassword')}
                   </button>
                 </div>
               </div>
@@ -575,14 +577,14 @@ export function Profile() {
               onClick={() => navigate(-1)}
               className="px-6 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
             >
-              Annuler
+              {t('cancel')}
             </button>
             <button
               type="submit"
               disabled={loading}
               className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
             >
-              {loading ? 'Enregistrement...' : 'Enregistrer'}
+              {loading ? t('saving') : t('save')}
             </button>
           </div>
         </form>
@@ -592,12 +594,12 @@ export function Profile() {
           <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
             <div className="bg-white dark:bg-gray-800 rounded-lg p-6 w-full max-w-md">
               <h3 className="text-lg font-semibold text-gray-900 dark:text-gray-100 mb-4">
-                Vérifier l'ancien mot de passe
+                {t('verifyOldPassword')}
               </h3>
               <form onSubmit={handlePasswordVerification}>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 dark:text-gray-300">
-                    Ancien mot de passe
+                    {t('oldPassword')}
                   </label>
                   <input
                     type="password"
@@ -617,14 +619,14 @@ export function Profile() {
                     }}
                     className="px-4 py-2 text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 rounded-lg hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
                   >
-                    Annuler
+                    {t('cancel')}
                   </button>
                   <button
                     type="submit"
                     disabled={passwordLoading}
                     className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
                   >
-                    {passwordLoading ? 'Vérification...' : 'Vérifier'}
+                    {passwordLoading ? t('verifying') : t('verify')}
                   </button>
                 </div>
               </form>

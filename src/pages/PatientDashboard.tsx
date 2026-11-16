@@ -115,7 +115,7 @@ const PatientDashboard = () => {
   const cancelAppointment = async () => {
     if (!appointmentToCancel || isCancellingAppointment) return;
     if (cancellationReason.trim().length < 5) {
-      toast.error('Indiquez une raison d’au moins 5 caractères.');
+      toast.error(t('cancellationReasonMinimum'));
       return;
     }
     setIsCancellingAppointment(true);
@@ -126,15 +126,15 @@ const PatientDashboard = () => {
         body: JSON.stringify({ reason: cancellationReason.trim() }),
       });
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Impossible d’annuler le rendez-vous.');
+      if (!response.ok) throw new Error(data.error || t('cancelAppointmentError'));
       setAppointments((items) => items.map((item) => item._id === appointmentToCancel._id
         ? { ...item, status: 'cancelled', cancellationReason: cancellationReason.trim(), cancelledBy: 'client' }
         : item));
       setAppointmentToCancel(null);
       setCancellationReason('');
-      toast.success('Rendez-vous annulé. Le créneau peut être proposé à un patient en liste d’attente.');
+      toast.success(t('appointmentCancelledWaitlist'));
     } catch (err) {
-      toast.error(err instanceof Error ? err.message : 'Impossible d’annuler le rendez-vous.');
+      toast.error(err instanceof Error ? err.message : t('cancelAppointmentError'));
     } finally {
       setIsCancellingAppointment(false);
     }
@@ -719,16 +719,16 @@ const PatientDashboard = () => {
             exit={{ opacity: 0, scale: 0.95, y: 12 }}
           >
             <h2 id="cancel-appointment-title" className="text-xl font-semibold text-gray-900 dark:text-white">
-              Annuler ce rendez-vous ?
+              {t('cancelThisAppointment')}
             </h2>
             <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
-              Rendez-vous avec Dr. {appointmentToCancel.doctorId.lastName}, le {format(new Date(appointmentToCancel.date), 'dd/MM/yyyy')} à {appointmentToCancel.time}.
+              {t('appointmentWithDoctorOn', { doctor: appointmentToCancel.doctorId.lastName, date: format(new Date(appointmentToCancel.date), 'dd/MM/yyyy'), time: appointmentToCancel.time })}
             </p>
             <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-              Cette action est définitive. Le créneau pourra être proposé à un autre patient.
+              {t('cancellationIsFinal')}
             </p>
             <label htmlFor="patient-cancellation-reason" className="mt-4 block text-sm font-medium text-gray-700 dark:text-gray-200">
-              Pourquoi annulez-vous ? (obligatoire)
+              {t('cancellationReasonRequired')}
             </label>
             <textarea
               id="patient-cancellation-reason"
@@ -736,7 +736,7 @@ const PatientDashboard = () => {
               onChange={(event) => setCancellationReason(event.target.value)}
               maxLength={500}
               rows={3}
-              placeholder="Indiquez brièvement la raison (5 caractères minimum)."
+              placeholder={t('cancellationReasonPlaceholder')}
               className="mt-1 w-full rounded-lg border border-gray-300 p-3 text-sm text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-200 dark:border-gray-600 dark:bg-gray-700 dark:text-white"
               required
             />
@@ -747,7 +747,7 @@ const PatientDashboard = () => {
                 onClick={() => { setAppointmentToCancel(null); setCancellationReason(''); }}
                 className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700"
               >
-                Garder le rendez-vous
+                {t('keepAppointment')}
               </button>
               <button
                 type="button"
