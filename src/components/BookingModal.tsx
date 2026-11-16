@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { X } from 'lucide-react';
 import { Calendar } from './Calendar';
 import { format } from 'date-fns';
+import { fr } from 'date-fns/locale';
 import { Doctor, Appointment } from '../types';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -83,6 +84,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
   const [isTeleconsultation, setIsTeleconsultation] = useState(false);
   const [appointments, setAppointments] = useState<Appointment[]>([]);
   const [liveAvailability, setLiveAvailability] = useState<Record<string, string[]>>({});
+  const [blockedPeriods, setBlockedPeriods] = useState<{ startDate: string; endDate: string }[]>([]);
   const [waitlistJoined, setWaitlistJoined] = useState(false);
   const [joiningWaitlist, setJoiningWaitlist] = useState(false);
 
@@ -133,6 +135,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
         if (!isActive) return;
         setAppointments(appointmentsData.appointments);
         setLiveAvailability(slotsData.availableSlots || {});
+        setBlockedPeriods(slotsData.blockedPeriods || []);
       } catch (error) {
         if (isActive) console.error('Erreur de mise à jour des disponibilités:', error);
       }
@@ -157,6 +160,13 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
 
   const handleBookAppointment = async () => {
     if (!doctor) return;
+
+    const bookingDateKey = format(selectedDate, 'yyyy-MM-dd');
+    if (blockedPeriods.some((period) => bookingDateKey >= period.startDate && bookingDateKey <= period.endDate)) {
+      toast.error('Le médecin est absent ce jour-là. Choisissez une autre date.');
+      setSelectedTime(null);
+      return;
+    }
 
     const user = JSON.parse(localStorage.getItem('user') || '{}');
     const token = localStorage.getItem('token');
@@ -259,6 +269,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
     }
   }
   const availableSlots = cleanedAvailability[formattedDate] || [];
+  const selectedDateIsBlocked = blockedPeriods.some((period) => formattedDate >= period.startDate && formattedDate <= period.endDate);
   const hasScheduledSlots = Object.prototype.hasOwnProperty.call(cleanedAvailability, formattedDate);
   const symptoms = symptomsBySpeciality[doctor.speciality] || [];
 
@@ -284,6 +295,22 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
     return isBooked;
   };
   const hasFreeSlot = availableSlots.some((time) => !isSlotBooked(time));
+  const nearestOpenSlots = Object.entries(cleanedAvailability)
+    .flatMap(([date, times]) => times
+      .filter((time) => {
+        const isBlocked = blockedPeriods.some((period) => date >= period.startDate && date <= period.endDate);
+        const appointmentDateTime = new Date(`${date}T${time}:00`);
+        const isBooked = appointments.some((appointment) =>
+          format(new Date(appointment.date), 'yyyy-MM-dd') === date
+          && appointment.time === time
+          && ['pending', 'accepted', 'completed'].includes(appointment.status)
+        );
+        return !isBlocked && !isBooked && appointmentDateTime > new Date();
+      })
+      .map((time) => ({ date, time, dateTime: new Date(`${date}T${time}:00`) }))
+    )
+    .sort((first, second) => first.dateTime.getTime() - second.dateTime.getTime())
+    .slice(0, 3);
 
   return (
     <motion.div
@@ -317,6 +344,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
           <Calendar
             selectedDate={selectedDate}
             availableSlots={availableSlots}
+            blockedPeriods={blockedPeriods}
             onDateSelect={(date) => {
               setSelectedDate(date);
               setSelectedTime(null);
@@ -325,6 +353,40 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
             selectedTime={selectedTime}
             isSlotBooked={isSlotBooked}
           />
+
+          {(selectedDateIsBlocked || !hasFreeSlot) && (
+            <div className="rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-800 dark:bg-amber-950/40">
+              <h3 className="text-sm font-semibold text-amber-950 dark:text-amber-100">
+                Suggestions de créneaux proches
+              </h3>
+              <p className="mt-1 text-sm text-amber-900 dark:text-amber-200">
+                {selectedDateIsBlocked
+                  ? 'Cette journée est bloquée. Voici les prochaines disponibilités du médecin.'
+                  : 'Aucun créneau libre à cette date. Voici les prochaines disponibilités du médecin.'}
+              </p>
+              {nearestOpenSlots.length > 0 ? (
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {nearestOpenSlots.map((slot) => (
+                    <button
+                      key={`${slot.date}-${slot.time}`}
+                      type="button"
+                      onClick={() => {
+                        setSelectedDate(new Date(`${slot.date}T12:00:00`));
+                        setSelectedTime(slot.time);
+                      }}
+                      className="rounded-lg border border-amber-300 bg-white px-3 py-2 text-sm font-medium text-indigo-700 hover:border-indigo-400 hover:bg-indigo-50 dark:border-amber-700 dark:bg-gray-800 dark:text-indigo-300 dark:hover:bg-gray-700"
+                    >
+                      {format(slot.dateTime, 'EEE d MMM', { locale: fr })} · {slot.time}
+                    </button>
+                  ))}
+                </div>
+              ) : (
+                <p className="mt-3 text-sm text-amber-900 dark:text-amber-200">
+                  Aucun autre créneau libre dans les 14 prochains jours.
+                </p>
+              )}
+            </div>
+          )}
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -380,7 +442,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
           <div className="flex justify-end">
             <button
               type="submit"
-              disabled={!selectedTime || selectedSymptoms.length === 0}
+              disabled={!selectedTime || selectedSymptoms.length === 0 || selectedDateIsBlocked}
               className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {t('confirmAppointment')}

@@ -12,6 +12,13 @@ interface AvailabilityManagerProps {
   appointments: Appointment[];
 }
 
+interface DoctorAbsence {
+  _id: string;
+  startDate: string;
+  endDate: string;
+  reason?: string;
+}
+
 export function AvailabilityManager({ onUpdateAvailability, appointments }: AvailabilityManagerProps) {
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [availability, setAvailability] = useState<{ [key: string]: string[] }>({});
@@ -20,6 +27,9 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
   const [absenceEndDate, setAbsenceEndDate] = useState('');
   const [absenceReason, setAbsenceReason] = useState('');
   const [isSavingAbsence, setIsSavingAbsence] = useState(false);
+  const [absences, setAbsences] = useState<DoctorAbsence[]>([]);
+  const [selectedAbsence, setSelectedAbsence] = useState<DoctorAbsence | null>(null);
+  const [isCancellingAbsence, setIsCancellingAbsence] = useState(false);
   const { user } = useAuthStore();
 
   const startDate = startOfWeek(new Date(), { locale: fr });
@@ -59,6 +69,17 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
           console.log('Fetched availability:', data.availability);
           setAvailability(data.availability);
           onUpdateAvailability(data.availability);
+          try {
+            const absencesResponse = await fetch('http://localhost:3000/api/users/doctor-absences', {
+              headers: { Authorization: `Bearer ${token}` },
+            });
+            if (absencesResponse.ok) {
+              const absencesData = await absencesResponse.json();
+              setAbsences(absencesData.absences || []);
+            }
+          } catch (error) {
+            console.error('Impossible de charger les périodes bloquées:', error);
+          }
         } else {
           console.error('Failed to fetch availability:', data.error || 'Unknown error');
           toast.error('Impossible de charger les disponibilités.');
@@ -155,6 +176,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
       if (!response.ok) throw new Error(data.error || 'Impossible d’enregistrer cette absence.');
       setAvailability(data.availability || {});
       onUpdateAvailability(data.availability || {});
+      if (data.absence) setAbsences((current) => [...current, data.absence]);
       setIsAbsenceModalOpen(false);
       const count = Number(data.cancelledAppointments) || 0;
       toast.success(count
@@ -164,6 +186,28 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
       toast.error(error instanceof Error ? error.message : 'Impossible d’enregistrer cette absence.');
     } finally {
       setIsSavingAbsence(false);
+    }
+  };
+
+  const cancelAbsence = async () => {
+    if (!selectedAbsence || isCancellingAbsence) return;
+    setIsCancellingAbsence(true);
+    try {
+      const response = await fetch(`http://localhost:3000/api/users/doctor-absence/${selectedAbsence._id}/cancel`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+      });
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Impossible d’annuler ce blocage.');
+      setAvailability(data.availability || {});
+      onUpdateAvailability(data.availability || {});
+      setAbsences((current) => current.filter((absence) => absence._id !== selectedAbsence._id));
+      setSelectedAbsence(null);
+      toast.success(data.message || 'Blocage annulé.');
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : 'Impossible d’annuler ce blocage.');
+    } finally {
+      setIsCancellingAbsence(false);
     }
   };
 
@@ -254,6 +298,9 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
       && appointmentDate <= absenceEndDate
       && ['pending', 'accepted'].includes(appointment.status);
   }).length;
+  const getAbsenceForDate = (date: string) => absences.find((absence) =>
+    date >= absence.startDate && date <= absence.endDate
+  );
 
   return (
     <div className="bg-white dark:bg-gray-900 border rounded-xl shadow-lg p-6">
@@ -269,7 +316,9 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
             onClick={() => setSelectedDate(date)}
             className={clsx(
               "p-2 rounded-lg text-sm font-medium transition-colors",
-              format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
+              getAbsenceForDate(format(date, 'yyyy-MM-dd'))
+                ? "bg-red-600 text-white hover:bg-red-700"
+                : format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
                 ? "bg-indigo-600 text-white"
                 : "hover:bg-indigo-50"
             )}
@@ -304,6 +353,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
 
       <div className="grid grid-cols-4 gap-2">
         {timeSlots.map((time) => {
+          const blockedAbsence = getAbsenceForDate(selectedDateKey);
           const isBooked = appointments.some(appointment =>
             format(new Date(appointment.date), 'yyyy-MM-dd') === selectedDateKey &&
             appointment.time === time &&
@@ -314,26 +364,30 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
           return (
             <div key={time} className="relative group">
               <button
-                onClick={() => toggleTimeSlot(time)}
-                disabled={isTimeSlotDisabled(time)}
+                onClick={() => blockedAbsence ? setSelectedAbsence(blockedAbsence) : toggleTimeSlot(time)}
+                disabled={!blockedAbsence && isTimeSlotDisabled(time)}
                 className={clsx(
                   "p-2 rounded-lg text-sm font-medium transition-colors flex items-center justify-center gap-2 w-full",
-                  selectedDateSlots.includes(time) && !isBooked
+                  blockedAbsence
+                    ? "bg-red-600 text-white hover:bg-red-700"
+                    : selectedDateSlots.includes(time) && !isBooked
                     ? "bg-indigo-600 text-white"
                     : isBooked
                     ? "bg-yellow-300 text-black"
                     : "border border-gray-200 hover:bg-indigo-50",
-                  isTimeSlotDisabled(time) && "opacity-50 cursor-not-allowed"
+                  !blockedAbsence && isTimeSlotDisabled(time) && "opacity-50 cursor-not-allowed"
                 )}
               >
                 {time}
-                {selectedDateSlots.includes(time) ? (
+                {blockedAbsence ? (
+                  <Ban className="w-4 h-4" />
+                ) : selectedDateSlots.includes(time) ? (
                   <X className="w-4 h-4" />
                 ) : (
                   <Plus className="w-4 h-4" />
                 )}
               </button>
-              {isBooked && patientName && (
+              {isBooked && !blockedAbsence && patientName && (
                 <div className="absolute z-10 hidden group-hover:block bg-gray-800 text-white text-xs rounded py-1 px-2 -top-8 left-1/2 transform -translate-x-1/2 whitespace-nowrap">
                   Patient: {patientName}
                 </div>
@@ -377,6 +431,30 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
               </button>
             </div>
           </form>
+        </div>
+      )}
+      {selectedAbsence && (
+        <div className="fixed inset-0 z-[110] flex items-center justify-center bg-black/50 px-4" role="presentation">
+          <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-2xl dark:bg-gray-800" role="dialog" aria-modal="true" aria-labelledby="cancel-block-title">
+            <h3 id="cancel-block-title" className="text-xl font-semibold text-gray-900 dark:text-white">
+              Période bloquée
+            </h3>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+              Du {format(new Date(`${selectedAbsence.startDate}T00:00:00`), 'dd/MM/yyyy')} au {format(new Date(`${selectedAbsence.endDate}T00:00:00`), 'dd/MM/yyyy')}.
+            </p>
+            {selectedAbsence.reason && <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">Motif : {selectedAbsence.reason}</p>}
+            <p className="mt-3 text-sm text-gray-600 dark:text-gray-300">
+              Voulez-vous conserver le blocage ou l’annuler et restaurer les créneaux encore libres ?
+            </p>
+            <div className="mt-6 flex justify-end gap-3">
+              <button type="button" disabled={isCancellingAbsence} onClick={() => setSelectedAbsence(null)} className="rounded-lg border border-gray-300 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 disabled:opacity-50 dark:border-gray-600 dark:text-gray-200 dark:hover:bg-gray-700">
+                Garder le blocage
+              </button>
+              <button type="button" disabled={isCancellingAbsence} onClick={cancelAbsence} className="rounded-lg bg-red-600 px-4 py-2 text-sm font-medium text-white hover:bg-red-700 disabled:cursor-wait disabled:opacity-50">
+                {isCancellingAbsence ? 'Annulation…' : 'Annuler le blocage'}
+              </button>
+            </div>
+          </div>
         </div>
       )}
     </div>
