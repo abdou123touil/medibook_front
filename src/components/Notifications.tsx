@@ -63,9 +63,9 @@ export function Notifications({ notifications, onMarkAsRead, onConfirmWaitlist, 
                   <AlertCircle className="w-5 h-5 text-yellow-600 flex-shrink-0" />
                 )}
                 <div>
-                  <h4 className="font-medium text-gray-900">{notification.title}</h4>
-                  <p className="text-sm text-gray-600">{notification.message}</p>
-                  <span className="text-xs text-gray-500 mt-1">{notification.time}</span>
+                  <h4 className="font-medium text-gray-900 dark:text-gray-300">{notification.title}</h4>
+                  <p className="text-sm text-gray-600 dark:text-gray-400">{notification.message}</p>
+                  <span className="text-xs text-gray-500 mt-1 dark:text-gray-400">{notification.time}</span>
                   {notification.action === 'confirm_waitlist' && notification.waitlistEntryId && (
                     <button
                       type="button"

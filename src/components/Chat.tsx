@@ -1,4 +1,5 @@
 
+import { apiFetch } from "../lib/api";
 import React, { useState, useEffect, useRef } from "react";
 import { format } from "date-fns";
 import { ar, enUS, fr } from "date-fns/locale";
@@ -66,7 +67,7 @@ interface ChatProps {
 export function Chat({ onClose }: ChatProps) {
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const [conversations, setConversations] = useState<Conversation[]>([]);
   const [selectedConversation, setSelectedConversation] =
     useState<Conversation | null>(null);
@@ -79,30 +80,24 @@ export function Chat({ onClose }: ChatProps) {
   const chatRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    console.log("Token:", token);
-    console.log("User data:", user?.data?.id);
     const loadData = async () => {
-      if (!user?.data?.id || !token) {
-        console.error("User ID or token missing");
+      if (!user?.data?.id || !isAuthenticated) {
         return;
       }
 
       try {
         const [appointmentsRes, convResponse] = await Promise.all([
-          fetch(`http://localhost:3000/api/appointments/`, {
+          apiFetch(`http://localhost:3000/api/appointments/`, {
             headers: {
-              Authorization: `Bearer ${token}`,
               "Content-Type": "application/json",
             },
           }),
-          fetch(`http://localhost:3000/api/chat/user/${user.data.id}`, {
-            headers: { Authorization: `Bearer ${token}` },
+          apiFetch(`http://localhost:3000/api/chat/user/${user.data.id}`, {
           }),
         ]);
 
         const appointmentsData = await appointmentsRes.json();
-        console.log("Appointments response:", appointmentsData);
+        
 
         const appointments: Appointment[] = appointmentsRes.ok
           ? appointmentsData.appointments || []
@@ -118,7 +113,7 @@ export function Chat({ onClose }: ChatProps) {
             const conversationId = `conv_${[user.data.id, otherUser._id]
               .sort()
               .join("_")}`;
-            console.log(`Generated conversationId: ${conversationId}`);
+            
 
             const existing = acc.find(
               (c) => c.conversationId === conversationId
@@ -209,17 +204,17 @@ export function Chat({ onClose }: ChatProps) {
           return acc;
         }, [] as Conversation[]);
 
-        console.log("Loaded conversations:", merged);
+        
         setConversations(merged);
       } catch (error) {
-        console.error("Error loading data:", error);
+        
       } finally {
         setIsLoading(false);
       }
     };
 
     loadData();
-  }, [user]);
+  }, [user, isAuthenticated]);
 
   const getOtherUserFromAppointment = (appointment: Appointment) => {
     const isDoctor = user?.data?.role === "doctor";
@@ -251,51 +246,48 @@ export function Chat({ onClose }: ChatProps) {
   useEffect(() => {
     const socket = io("http://localhost:3000", {
       withCredentials: true,
-      auth: { token: localStorage.getItem('token') },
     });
     socketRef.current = socket;
 
     socket.on("connect", () => {
-      console.log("Socket.IO connected:", socket.id);
+      
     });
 
     socket.on("disconnect", () => {
-      console.log("Socket.IO disconnected");
+      
     });
 
     socket.on("connect_error", (err) => {
-      console.error("Socket.IO connection error:", err);
+      
     });
 
     socket.on("newMessage", (message: Message) => {
-      console.log("Received newMessage:", JSON.stringify(message, null, 2));
+      
       if (!message.conversationId) {
-        console.error("Received message with undefined conversationId:", message);
+        
         const generatedConversationId = `conv_${[
           message.senderId._id,
           message.receiverId._id,
         ]
           .sort()
           .join("_")}`;
-        console.log("Generated fallback conversationId:", generatedConversationId);
+        
         message.conversationId = generatedConversationId;
       }
       if (selectedConversation?.conversationId === message.conversationId) {
         setMessages((prev) => {
           if (prev.some((msg) => msg._id === message._id)) {
-            console.log(`Duplicate message ignored: ${message._id}`);
+            
             return prev;
           }
-          console.log("Adding new message to state:", message._id);
+          
           return [...prev, message];
         });
         if (message.senderId._id === "bot_medical_advisor") {
           setIsBotTyping(false);
         }
       } else {
-        console.log(
-          `Message ignored: not for selected conversation ${selectedConversation?.conversationId}`
-        );
+        
       }
 
       setConversations((prev) =>
@@ -324,10 +316,7 @@ export function Chat({ onClose }: ChatProps) {
     });
 
     socket.on("messagesRead", (updatedMessages: Message[]) => {
-      console.log(
-        "Received messagesRead:",
-        updatedMessages.map((msg) => ({ _id: msg._id, readAt: msg.readAt }))
-      );
+      
       setMessages((prev) =>
         prev.map((msg) => {
           const updatedMsg = updatedMessages.find((u) => u._id === msg._id);
@@ -345,7 +334,7 @@ export function Chat({ onClose }: ChatProps) {
     if (conversations.length > 0 && socketRef.current && socketRef.current.connected) {
       conversations.forEach((conv) => {
         socketRef.current.emit("joinConversation", conv.conversationId);
-        console.log(`Joined conversation: ${conv.conversationId}`);
+        
       });
     }
   }, [conversations]);
@@ -380,9 +369,9 @@ export function Chat({ onClose }: ChatProps) {
               },
             ]);
           } else {
-            const response = await fetch(
+            const response = await apiFetch(
               `http://localhost:3000/api/chat/conversation/${user.data.id}/${otherUser._id}`,
-              { headers: { Authorization: `Bearer ${localStorage.getItem('token')}` } }
+              {}
             );
 
             if (!response.ok) {
@@ -394,7 +383,7 @@ export function Chat({ onClose }: ChatProps) {
             setMessages(data);
           }
         } catch (error) {
-          console.error("Error loading messages:", error);
+          
         } finally {
           setIsLoading(false);
         }
@@ -404,7 +393,7 @@ export function Chat({ onClose }: ChatProps) {
 
       if (!selectedConversation.isBot && socketRef.current) {
         socketRef.current.emit("joinConversation", selectedConversation.conversationId);
-        console.log(`Re-joined conversation on selection: ${selectedConversation.conversationId}`);
+        
         socketRef.current.emit("markAsRead", {
           conversationId: selectedConversation.conversationId,
           userId: user.data.id,
@@ -418,7 +407,7 @@ export function Chat({ onClose }: ChatProps) {
 
   const sendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!selectedConversation || !newMessage.trim() || !user?.data?.id) return;
+    if (!selectedConversation || !newMessage.trim() || !user?.data?.id || !isAuthenticated) return;
 
     const otherUser = getOtherUserFromConversation(selectedConversation);
     if (!otherUser) return;
@@ -445,7 +434,7 @@ export function Chat({ onClose }: ChatProps) {
 
         setMessages((prev) => {
           if (prev.some((msg) => msg._id === botMessage._id)) {
-            console.log(`Duplicate bot message ignored: ${botMessage._id}`);
+            
             return prev;
           }
           return [...prev, botMessage];
@@ -453,22 +442,17 @@ export function Chat({ onClose }: ChatProps) {
         setNewMessage("");
         setIsBotTyping(true);
 
-        console.log("Sending botMessage:", {
-          message: newMessage,
-          userId: user.data.id,
-          conversationId: "bot_medical_advisor",
-        });
+        
         socketRef.current.emit("botMessage", {
           message: newMessage,
           userId: user.data.id,
           conversationId: "bot_medical_advisor",
         });
       } else {
-        const response = await fetch("http://localhost:3000/api/chat", {
+        const response = await apiFetch("http://localhost:3000/api/chat", {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${user.data.token}`,
           },
           body: JSON.stringify({
             senderId: user.data.id,
@@ -486,10 +470,10 @@ export function Chat({ onClose }: ChatProps) {
         const savedMessage = await response.json();
         setMessages((prev) => {
           if (prev.some((msg) => msg._id === savedMessage._id)) {
-            console.log(`Duplicate message ignored: ${savedMessage._id}`);
+            
             return prev;
           }
-          console.log("Adding saved message to state:", savedMessage._id);
+          
           return [...prev, savedMessage];
         });
         setNewMessage("");
@@ -503,7 +487,7 @@ export function Chat({ onClose }: ChatProps) {
         );
       }
     } catch (error) {
-      console.error("Error sending message:", error);
+      
       alert(t('chatSendError'));
       setIsBotTyping(false);
     }

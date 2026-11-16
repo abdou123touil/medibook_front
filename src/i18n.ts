@@ -395,7 +395,7 @@ i18n
 
 // Ajouter un écouteur pour gérer le changement de langue et le RTL
 i18n.on("languageChanged", (lng) => {
-  console.log("Language changed to:", lng); // Debug
+   // Debug
   document.documentElement.setAttribute("lang", lng);
   document.documentElement.setAttribute("dir", lng === "ar" ? "rtl" : "ltr");
   // Appliquer la police Noto Sans Arabic pour l'arabe

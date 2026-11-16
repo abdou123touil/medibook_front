@@ -20,7 +20,7 @@ function LocationMarker({ onLocationSelect }: { onLocationSelect: (lat: number, 
   useMapEvents({
     click(e) {
       onLocationSelect(e.latlng.lat, e.latlng.lng);
-      console.log(e.latlng.lat, e.latlng.lng)
+      
     },
   });
 

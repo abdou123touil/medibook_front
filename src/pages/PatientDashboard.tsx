@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { apiFetch } from "../lib/api";
 import { useNavigate } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import { useAuthStore } from "../store/auth";
@@ -105,9 +106,7 @@ const PatientDashboard = () => {
   const [appointmentToCancel, setAppointmentToCancel] = useState<Appointment | null>(null);
   const [isCancellingAppointment, setIsCancellingAppointment] = useState(false);
   const [cancellationReason, setCancellationReason] = useState('');
-  const users = localStorage.getItem("user");
-  const parsedUser = users ? JSON.parse(users) : null;
-  const userId = parsedUser?.data?.id || null;
+  const userId = user?.data?.id || null;
 
   // State for timers
   const [timers, setTimers] = useState<{ [key: string]: string | null }>({});
@@ -120,9 +119,9 @@ const PatientDashboard = () => {
     }
     setIsCancellingAppointment(true);
     try {
-      const response = await fetch(`http://localhost:3000/api/appointments/${appointmentToCancel._id}/cancel`, {
+      const response = await apiFetch(`http://localhost:3000/api/appointments/${appointmentToCancel._id}/cancel`, {
         method: 'PUT',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${localStorage.getItem('token')}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ reason: cancellationReason.trim() }),
       });
       const data = await response.json();
@@ -143,7 +142,7 @@ const PatientDashboard = () => {
   useEffect(() => {
     const fetchStats = async () => {
       if (!userId) {
-        console.error("Erreur: Aucun utilisateur connecté ou ID manquant.");
+        
         setError(t("errorNotLoggedIn"));
         setLoading(false);
         return;
@@ -159,11 +158,10 @@ const PatientDashboard = () => {
             endDate: dateRange[0].endDate.toISOString(),
           }),
         });
-        const response = await fetch(
+        const response = await apiFetch(
           `http://localhost:3000/api/appointments/patient/${userId}/stats?${params}`,
           {
             headers: {
-              Authorization: `Bearer ${localStorage.getItem("token")}`,
             },
           }
         );
@@ -186,7 +184,7 @@ const PatientDashboard = () => {
         setStatusDistribution(data.statusDistribution || []);
         setLoading(false);
       } catch (err: any) {
-        console.error("Erreur lors de la récupération des stats:", err);
+        
         setError(err.message || t("errorFetch"));
         setLoading(false);
       }
@@ -194,12 +192,10 @@ const PatientDashboard = () => {
 
     const fetchAppointments = async () => {
       try {
-        const token = localStorage.getItem("token");
-        const response = await fetch(
+        const response = await apiFetch(
           `http://localhost:3000/api/appointments/patient/${userId}`,
           {
             headers: {
-              Authorization: `Bearer ${token}`,
             },
           }
         );
@@ -207,24 +203,23 @@ const PatientDashboard = () => {
           throw new Error(t("errorFetchAppointments"));
         }
         const data = await response.json();
-        console.log("Appointments received:", data.appointments); // Debug log
+         // Debug log
         setAppointments(data.appointments || []);
       } catch (err) {
-        console.error("Erreur:", err);
+        
         toast.error(t("errorFetchAppointments"));
       }
     };
 
     const fetchPatientRecords = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/patients/me/records', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        const response = await apiFetch('http://localhost:3000/api/patients/me/records', {
         });
         if (!response.ok) throw new Error('Impossible de charger votre historique médical.');
         const data = await response.json();
         setPatientRecords(data.records || []);
       } catch (err) {
-        console.error('Erreur lors du chargement du dossier médical:', err);
+        
       }
     };
 

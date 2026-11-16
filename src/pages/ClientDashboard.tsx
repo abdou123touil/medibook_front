@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from "react";
+import { apiFetch } from "../lib/api";
 import { useLocation, useNavigate } from "react-router-dom";
 import { Search, Calendar, Clock } from "lucide-react";
 import { BookingModal } from "../components/BookingModal";
@@ -43,7 +44,7 @@ export function ClientDashboard() {
   useEffect(() => {
     const fetchDoctors = async () => {
       try {
-        const response = await fetch("http://localhost:3000/api/users/doctors");
+        const response = await apiFetch("http://localhost:3000/api/users/doctors");
         if (!response.ok) {
           throw new Error(t("errorLoadDoctors"));
         }
@@ -85,7 +86,7 @@ export function ClientDashboard() {
     time: string;
     symptoms: string;
   }) => {
-    console.log("Booking appointment:", appointment);
+    
     // TODO: Implémenter la logique de prise de RDV
   };
 

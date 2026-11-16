@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from "../lib/api";
 import { useTranslation } from 'react-i18next';
 import { format, addDays, startOfWeek } from 'date-fns';
 import { ar, enUS, fr } from 'date-fns/locale';
@@ -18,7 +19,7 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [availableSlots, setAvailableSlots] = useState<{ [key: string]: string[] }>({});
   const [requiresConfirmation, setRequiresConfirmation] = useState(false);
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
 
   const startDate = startOfWeek(new Date(), { locale: dateLocale });
   const weekDays = [...Array(14)].map((_, i) => addDays(startDate, i));
@@ -27,26 +28,24 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
   useEffect(() => {
     const fetchAvailableSlots = async () => {
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
+        if (!isAuthenticated) {
           toast.error(t('errorPleaseLogin'));
           return;
         }
 
         const start = format(startDate, 'yyyy-MM-dd');
         const end = format(addDays(startDate, 13), 'yyyy-MM-dd');
-        const response = await fetch(
+        const response = await apiFetch(
           `http://localhost:3000/api/users/doctors/${doctorId}/available-slots?startDate=${start}&endDate=${end}`,
           {
             method: 'GET',
             headers: {
-              'Authorization': `Bearer ${token}`,
             },
           }
         );
 
         const data = await response.json();
-        console.log('Available slots response:', data);
+        
 
         if (response.ok) {
           setAvailableSlots(data.availableSlots);
@@ -55,30 +54,28 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
           toast.error(data.error || t('errorLoadAvailability'));
         }
       } catch (error) {
-        console.error('Error fetching available slots:', error);
+        
         toast.error(t('errorLoadAvailability'));
       }
     };
 
     fetchAvailableSlots();
-  }, [doctorId, t]);
+  }, [doctorId, isAuthenticated, t]);
 
   // Book an appointment
   const bookAppointment = async (time: string) => {
     try {
-      const token = localStorage.getItem('token');
       const patientId = user?.data?.id;
-      if (!patientId || !token) {
+      if (!patientId || !isAuthenticated) {
         toast.error(t('errorPleaseLogin'));
         return;
       }
 
       const dateKey = format(selectedDate, 'yyyy-MM-dd');
-      const response = await fetch('http://localhost:3000/api/appointments', {
+      const response = await apiFetch('http://localhost:3000/api/appointments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           doctorId,
@@ -88,7 +85,7 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
       });
 
       const data = await response.json();
-      console.log('Book appointment response:', data);
+      
 
       if (response.ok) {
         // Remove the booked slot from available slots
@@ -101,7 +98,7 @@ export function AppointmentScheduler({ doctorId, doctorName }: AppointmentSchedu
         toast.error(data.error || t('bookingError'));
       }
     } catch (error) {
-      console.error('Erreur lors de la réservation:', error);
+      
       toast.error(t('bookingError'));
     }
   };

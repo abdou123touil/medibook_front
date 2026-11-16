@@ -5,6 +5,7 @@ import { useAuthStore } from '../store/auth';
 import { AnimatePresence, motion } from 'framer-motion';
 import { useTranslation } from 'react-i18next';
 import toast from 'react-hot-toast';
+import { apiFetch } from '../lib/api';
 
 type AuthMode = 'login' | 'register';
 
@@ -20,7 +21,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   const [password, setPassword] = useState('');
   const [role, setRole] = useState<'client' | 'doctor'>('client');
   const navigate = useNavigate();
-  const { user, isAuthenticated, setUser, setToken, setPendingRegistration } = useAuthStore();
+  const { user, isAuthenticated, setUser, setPendingRegistration } = useAuthStore();
 
   const modalVariants = {
     hidden: { opacity: 0, scale: 0.8 },
@@ -31,7 +32,6 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
   // Redirection automatique si déjà connecté
   useEffect(() => {
     if (isOpen && isAuthenticated && user?.data?.role) {
-      console.log('AuthModal: Redirecting to', user.data.role === 'doctor' ? '/doctor' : '/client');
       navigate(user.data.role === 'doctor' ? '/doctor' : '/client', { replace: true });
       onClose();
     }
@@ -41,6 +41,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     e.preventDefault();
 
     setPendingRegistration({ email: email.trim(), password, role });
+    setPassword('');
     navigate('/profile-completion');
     onClose();
   };
@@ -49,7 +50,7 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
     e.preventDefault();
 
     try {
-      const response = await fetch('http://localhost:3000/api/users/login', {
+      const response = await apiFetch('http://localhost:3000/api/users/login', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ email, password }),
@@ -59,17 +60,14 @@ export function AuthModal({ isOpen, onClose }: AuthModalProps) {
 
       if (response.ok) {
         setUser({ data: data.user });
-        setToken(data.token);
-        localStorage.setItem('user', JSON.stringify({ data: data.user }));
-        localStorage.setItem('token', data.token);
-        localStorage.setItem('appoiment', JSON.stringify({ appoiment: data.appointments }));
+        setPassword('');
         navigate(data.user.role === 'doctor' ? '/doctor' : '/client', { replace: true });
         onClose();
       } else {
         toast.error(data.error || t('loginFailed'));
       }
     } catch (error) {
-      console.error('Erreur de connexion:', error);
+      
       toast.error(t('loginFailed'));
     }
   };

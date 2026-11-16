@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from "../lib/api";
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -51,41 +52,35 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
     if (isOpen) {
       const fetchDetails = async () => {
         try {
-          const token = localStorage.getItem('token');
-          if (!token) {
-            throw new Error('Token d’authentification manquant');
-          }
-
           for (const appointment of appointments) {
             try {
-              const response = await fetch(
+              const response = await apiFetch(
                 `http://localhost:3000/api/appointments/appointment-details/${appointment._id}`,
                 {
                   headers: {
-                    Authorization: `Bearer ${token}`,
                   },
                 }
               );
 
               if (response.ok) {
                 const data = await response.json();
-                console.log(`Fetched details for appointment ${appointment._id}:`, data);
+                
                 setAppointmentDetails((prev) => ({
                   ...prev,
                   [appointment._id]: data.appointmentDetail,
                 }));
               } else if (response.status === 404) {
                 // Pas de détails pour ce rendez-vous, continuer sans erreur
-                console.log(`No details found for appointment ${appointment._id}`);
+                
               } else {
-                console.error(`Error fetching details for appointment ${appointment._id}:`, response.status);
+                
               }
             } catch (error) {
-              console.error(`Error fetching details for appointment ${appointment._id}:`, error);
+              
             }
           }
         } catch (error) {
-          console.error('Erreur lors de la récupération des détails:', error);
+          
           toast.error(t('appointmentDetailsLoadError'));
         }
       };
@@ -132,18 +127,12 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
 
     setIsSubmitting(true);
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        throw new Error('Token d’authentification manquant');
-      }
-
-      const response = await fetch(
+      const response = await apiFetch(
         'http://localhost:3000/api/appointments/appointment-details',
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             appointmentId,
@@ -156,13 +145,13 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Error response:', errorText);
+        
         const errorData = JSON.parse(errorText);
         throw new Error(errorData.error || t('appointmentDetailsSaveError'));
       }
 
       const data = await response.json();
-      console.log('Submitted details:', data);
+      
       setAppointmentDetails((prev) => ({
         ...prev,
         [appointmentId]: data.appointmentDetail,
@@ -171,7 +160,7 @@ export const AppointmentHistoryModal: React.FC<AppointmentHistoryModalProps> = (
       setSelectedAppointment(null);
       toast.success(t('appointmentDetailsSaved'));
     } catch (error) {
-      console.error('Erreur:', error);
+      
       toast.error((error as Error).message || t('errorTryAgain'));
     } finally {
       setIsSubmitting(false);

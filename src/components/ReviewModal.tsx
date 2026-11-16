@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { apiFetch } from "../lib/api";
 import {
   Star,
   MessageCircle,
@@ -12,6 +13,7 @@ import { fr } from "date-fns/locale";
 import { motion } from "framer-motion";
 import toast from 'react-hot-toast';
 import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '../store/auth';
 
 interface Review {
   _id: string;
@@ -31,6 +33,7 @@ interface ReviewModalProps {
 
 export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
   const { t, i18n } = useTranslation();
+  const { user: currentUser, isAuthenticated } = useAuthStore();
   const [reviews, setReviews] = useState<Review[]>([]);
   const [newReview, setNewReview] = useState({ rating: 0, comment: "" });
   const [loading, setLoading] = useState<boolean>(false);
@@ -43,29 +46,25 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
     if (!isOpen) return;
 
     setLoading(true);
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      console.error("No token found in localStorage.");
+    if (!isAuthenticated) {
       toast.error(t('loginToViewReviews'));
       setLoading(false);
       return;
     }
 
-    console.log("Fetching reviews for doctorId:", doctorId);
-    fetch(`http://localhost:3000/api/reviews/doctor/${doctorId}`, {
+    
+    apiFetch(`http://localhost:3000/api/reviews/doctor/${doctorId}`, {
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
     })
       .then((response) => {
-        console.log("Response status:", response.status);
+        
         if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
         return response.json();
       })
       .then(async (data) => {
-        console.log("Fetched reviews data:", data);
+        
         setReviews(data);
 
         if (data.length === 0) {
@@ -75,43 +74,22 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
 
         const fetchedReactions: Record<string, Record<string, number>> = {};
 
-        await Promise.all(
-          data.map((review: Review) =>
-            fetch(`http://localhost:3000/api/reactions/review/${review._id}`, {
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${token}`,
-              },
-            })
-              .then((response) => {
-                if (!response.ok) throw new Error(`HTTP error! Status: ${response.status}`);
-                return response.json();
-              })
-              .then((reactionData) => {
-                fetchedReactions[review._id] = reactionData[review._id] || {};
-              })
-              .catch((error) =>
-                console.error(`Error fetching reactions for ${review._id}:`, error)
-              )
-          )
-        );
+        
 
         setReactionCounts(fetchedReactions);
         setLoading(false);
       })
       .catch((error) => {
-        console.error("Error fetching reviews:", error);
+        
         toast.error(t('reviewsLoadError'));
         setLoading(false);
       });
-  }, [isOpen, doctorId, t]);
+  }, [isOpen, doctorId, t, isAuthenticated]);
 
   const handleSubmitReview = async (e: React.FormEvent) => {
     e.preventDefault();
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const token = localStorage.getItem("token");
-
-    if (!token) {
+    const user = currentUser;
+    if (!isAuthenticated) {
       toast.error(t('loginToSubmitReview'));
       return;
     }
@@ -127,14 +105,13 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
     }
 
     try {
-      console.log("Submitting review for doctorId:", doctorId, "with data:", newReview);
-      const response = await fetch(
+      
+      const response = await apiFetch(
         `http://localhost:3000/api/reviews/doctor/${doctorId}`,
         {
           method: "POST",
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
           body: JSON.stringify({
             rating: newReview.rating,
@@ -143,33 +120,31 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
         }
       );
 
-      console.log("Response status:", response.status);
+      
       if (!response.ok) {
         const errorText = await response.text();
-        console.error("Response text:", errorText);
+        
         throw new Error(`Failed to submit review: ${errorText}`);
       }
 
       const addedReview = await response.json();
-      console.log("Added review:", addedReview);
+      
       setReviews((prevReviews) => [addedReview, ...prevReviews]);
       setNewReview({ rating: 0, comment: "" });
       toast.success(t('reviewSubmitted'));
     } catch (error) {
-      console.error("Error submitting review:", error);
+      
       toast.error(t('reviewSubmitError'));
     }
   };
 
   const fetchReactions = async (reviewId: string) => {
     try {
-      const token = localStorage.getItem("token");
-      const response = await fetch(
+      const response = await apiFetch(
         `http://localhost:3000/api/reactions/review/${reviewId}`,
         {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -181,27 +156,23 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
         [reviewId]: data[reviewId] || {},
       }));
     } catch (error) {
-      console.error("Error fetching reactions:", error);
+      
     }
   };
 
   const handleReaction = async (reviewId: string, reaction: string) => {
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = user?.id || user?.data?.id;
-    const token = localStorage.getItem("token");
-
-    if (!userId || !token) {
+    const userId = currentUser?.data?.id;
+    if (!userId || !isAuthenticated) {
       toast.error(t('loginToReact'));
       return;
     }
 
     try {
-      const currentReactionResponse = await fetch(
+      const currentReactionResponse = await apiFetch(
         `http://localhost:3000/api/reactions/user-reaction?userId=${userId}&reviewId=${reviewId}`,
         {
           headers: {
             "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -221,11 +192,10 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
         bodyData = { userId, reviewId, newType: reaction };
       }
 
-      const response = await fetch(requestUrl, {
+      const response = await apiFetch(requestUrl, {
         method: requestMethod,
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify(bodyData),
       });
@@ -235,7 +205,7 @@ export function ReviewModal({ isOpen, onClose, doctorId }: ReviewModalProps) {
       await fetchReactions(reviewId);
       toast.success(t('reactionUpdated'));
     } catch (error) {
-      console.error("Error handling reaction:", error);
+      
       toast.error(t('reactionUpdateError'));
     }
   };

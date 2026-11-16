@@ -5,6 +5,7 @@ import toast from "react-hot-toast";
 import { useTranslation } from "react-i18next";
 import { Map } from "../components/Map";
 import { useAuthStore } from "../store/auth";
+import { apiFetch } from "../lib/api";
 
 type ImageField = "profileImage" | "cinFront" | "cinBack";
 const initialLocation = { lat: 33.5731, lng: -7.5898 };
@@ -12,7 +13,7 @@ const initialLocation = { lat: 33.5731, lng: -7.5898 };
 export function ProfileCompletion() {
   const navigate = useNavigate();
   const { t } = useTranslation();
-  const { pendingRegistration: registration, setPendingRegistration, setUser, setToken } = useAuthStore();
+  const { pendingRegistration: registration, setPendingRegistration, setUser } = useAuthStore();
   const role = registration?.role;
   const [step, setStep] = useState(1);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -97,14 +98,12 @@ export function ProfileCompletion() {
         body.append("availability", JSON.stringify({}));
       }
 
-      const response = await fetch("http://localhost:3000/api/users/register", { method: "POST", body });
+      const response = await apiFetch("http://localhost:3000/api/users/register", { method: "POST", body });
       const result = await response.json();
       if (!response.ok) throw new Error(result.error || t("registrationFailed"));
       const sessionUser = { data: result.user };
       setUser(sessionUser);
-      setToken(result.token);
       setPendingRegistration(null);
-      localStorage.setItem("user", JSON.stringify(sessionUser));
       toast.success(t("accountCreated"));
       navigate(role === "doctor" ? "/doctor" : "/client", { replace: true });
     } catch (error) {

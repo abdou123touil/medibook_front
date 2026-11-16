@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
+import { apiFetch } from "../lib/api";
 import { X, Save, ClipboardList } from 'lucide-react';
 import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
@@ -59,8 +60,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
       setIsLoading(true);
       setLoadError('');
       try {
-        const response = await fetch(`http://localhost:3000/api/patients/${patientId}/record`, {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
+        const response = await apiFetch(`http://localhost:3000/api/patients/${patientId}/record`, {
         });
         const data = await response.json();
         if (!response.ok) throw new Error(data.error || t('patientRecordLoadError'));
@@ -111,11 +111,10 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
     event.preventDefault();
     setIsSaving(true);
     try {
-      const response = await fetch(`http://localhost:3000/api/patients/${patientId}/record`, {
+      const response = await apiFetch(`http://localhost:3000/api/patients/${patientId}/record`, {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({
           allergies,

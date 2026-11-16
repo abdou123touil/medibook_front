@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from "../lib/api";
 import { format, addDays, isWithinInterval, parseISO, parse, formatDistanceToNow, isBefore, isAfter, addMinutes } from 'date-fns';
 import { ar, fr } from 'date-fns/locale';
 import {
@@ -33,7 +34,7 @@ interface ExtendedAppointment extends Appointment {
 export function DoctorDashboard() {
   const { t, i18n } = useTranslation();
   const location = useLocation();
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const [appointments, setAppointments] = useState<ExtendedAppointment[]>([]);
   const [allAppointments, setAllAppointments] = useState<ExtendedAppointment[]>([]);
   const [historicAppointments, setHistoricAppointments] = useState<ExtendedAppointment[]>([]);
@@ -55,15 +56,13 @@ export function DoctorDashboard() {
   const [timers, setTimers] = useState<{ [key: string]: string | null }>({});
 
   if (location.pathname === '/doctor/statistics') {
-    console.warn('DoctorDashboard should not render for /doctor/statistics');
+    
   }
 
   const fetchAppointments = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const doctorId = user?.id || storedUser?.data?.id;
-      console.log('Fetching appointments for doctorId:', doctorId);
+      const doctorId = user?.data?.id;
+      
 
       if (!doctorId) {
         throw new Error(t('errorDoctorIdNotFound'));
@@ -73,23 +72,22 @@ export function DoctorDashboard() {
       const endOfWeek = new Date(today);
       endOfWeek.setDate(today.getDate() + (7 - today.getDay()));
 
-      const response = await fetch(
+      const response = await apiFetch(
         `http://localhost:3000/api/appointments/doctor/${doctorId}`,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
           },
         }
       );
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('Failed to fetch appointments:', response.status, errorData);
+        
         throw new Error(t('errorFetchAppointments'));
       }
 
       const data = await response.json();
-      console.log('Appointments response:', data);
+      
 
       if (!Array.isArray(data.appointments)) {
         throw new Error(t('errorUnexpectedResponse'));
@@ -109,7 +107,7 @@ export function DoctorDashboard() {
       setAppointments(upcomingAppointments);
       setHistoricAppointments(historicFiltered);
     } catch (error) {
-      console.error('Error:', error);
+      
       toast.error(t('errorLoadAppointments'));
       setAppointments([]);
       setAllAppointments([]);
@@ -119,30 +117,26 @@ export function DoctorDashboard() {
 
   const fetchAvailability = async () => {
     try {
-      const token = localStorage.getItem('token');
-      const storedUser = JSON.parse(localStorage.getItem('user') || '{}');
-      const doctorId = user?.id || storedUser?.data?.id;
-      console.log('Fetching availability for doctorId:', doctorId, 'with token:', token);
+      const doctorId = user?.data?.id;
 
       if (!doctorId) {
         throw new Error(t('errorDoctorIdNotFound'));
       }
 
-      const response = await fetch(
+      const response = await apiFetch(
         `http://localhost:3000/api/users/get-availability?userId=${doctorId}`,
         {
-          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
       if (!response.ok) {
         const errorData = await response.text();
-        console.error('Failed to fetch availability:', response.status, errorData);
+        
         throw new Error(t('errorFetchAvailability'));
       }
 
       const data = await response.json();
-      console.log('Availability response:', data);
+      
 
       if (!data.availability) {
         throw new Error(t('errorNoAvailabilityData'));
@@ -173,7 +167,7 @@ export function DoctorDashboard() {
 
       setAvailableSlotsIn14Days(slotsCount);
     } catch (error) {
-      console.error('Error:', error);
+      
       toast.error(t('errorLoadAvailability'));
       setAvailability({});
     }
@@ -189,15 +183,13 @@ export function DoctorDashboard() {
       return;
     }
     try {
-      const token = localStorage.getItem('token');
       const action = status === 'accepted' ? 'accept' : 'cancel';
-      const response = await fetch(
+      const response = await apiFetch(
         `http://localhost:3000/api/appointments/${appointmentId}/${action}`,
         {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
           },
           body: status === 'cancelled' ? JSON.stringify({ reason: reason?.trim() }) : undefined,
         }
@@ -251,15 +243,14 @@ export function DoctorDashboard() {
 
       toast.success(t(status === 'accepted' ? 'appointmentAccepted' : appointmentToRefuse ? 'appointmentRefused' : 'appointmentCancelled'));
     } catch (error) {
-      console.error('Error:', error);
+      
       toast.error(t('errorTryAgain'));
     }
   };
 
   const updateRequiresConfirmation = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!isAuthenticated) {
         toast.error(t('errorPleaseLogin'));
         return;
       }
@@ -267,10 +258,9 @@ export function DoctorDashboard() {
       const newValue = !requiresConfirmation;
       const formData = new FormData();
       formData.append('requiresConfirmation', String(newValue));
-      const response = await fetch('http://localhost:3000/api/users/profile', {
+      const response = await apiFetch('http://localhost:3000/api/users/profile', {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${token}`,
         },
         body: formData,
       });
@@ -283,21 +273,19 @@ export function DoctorDashboard() {
         throw new Error(data.error || t('errorUpdate'));
       }
     } catch (error) {
-      console.error('Error during update:', error);
+      
       toast.error(t('errorServerUpdate'));
     }
   };
 
   const completeAppointment = async (appointmentId: string) => {
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch(
+      const response = await apiFetch(
         `http://localhost:3000/api/appointments/${appointmentId}/complete`,
         {
           method: 'PUT',
           headers: {
             'Content-Type': 'application/json',
-            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -325,7 +313,7 @@ export function DoctorDashboard() {
       );
       toast.success(t('appointmentCompleted'));
     } catch (error) {
-      console.error('Error:', error);
+      
       toast.error(t('errorTryAgain'));
     }
   };

@@ -10,6 +10,7 @@ import { ThemeToggle } from "./ThemeToggle";
 import { Chat } from "./Chat";
 import { Notifications } from "./Notifications";
 import toast from "react-hot-toast";
+import { apiFetch } from "../lib/api";
 
 interface NotificationItem {
   id: string;
@@ -26,24 +27,22 @@ interface NotificationItem {
 export function Navigation() {
   const { t, i18n } = useTranslation();
   const navigate = useNavigate();
-  const { user, isAuthenticated, setUser, setToken } = useAuthStore();
+  const { user, isAuthenticated, setUser } = useAuthStore();
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isChatOpen, setIsChatOpen] = useState(false);
   const [isNotificationsOpen, setIsNotificationsOpen] = useState(false);
   const [notifications, setNotifications] = useState<NotificationItem[]>([]);
 
   useEffect(() => {
-    const storedUser = localStorage.getItem("user");
-    const storedToken = localStorage.getItem("token");
-
-    if (storedUser && storedToken) {
-      const parsedUser = JSON.parse(storedUser);
-      const normalizedUser = parsedUser.data ? parsedUser : { data: parsedUser };
-      setUser(normalizedUser);
-      if (!parsedUser.data) localStorage.setItem("user", JSON.stringify(normalizedUser));
-      setToken(storedToken);
-    }
-  }, [setUser, setToken]);
+    localStorage.removeItem('token');
+    localStorage.removeItem('appoiment');
+    let active = true;
+    apiFetch('http://localhost:3000/api/users/profile')
+      .then(async (response) => response.ok ? response.json() : null)
+      .then((profile) => { if (active) setUser(profile ? { data: profile } : null); })
+      .catch(() => { if (active) setUser(null); });
+    return () => { active = false; };
+  }, [setUser]);
 
   useEffect(() => {
     if (!isAuthenticated) {
@@ -54,9 +53,7 @@ export function Navigation() {
     let isActive = true;
     const loadNotifications = async () => {
       try {
-        const response = await fetch('http://localhost:3000/api/notifications', {
-          headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-        });
+        const response = await apiFetch('http://localhost:3000/api/notifications');
         if (!response.ok) return;
         const data = await response.json();
         if (!isActive) return;
@@ -72,7 +69,7 @@ export function Navigation() {
           doctorId: item.doctorId?._id || item.doctorId || null,
         })));
       } catch (error) {
-        console.error('Impossible de charger les notifications:', error);
+        
       }
     };
 
@@ -88,10 +85,7 @@ export function Navigation() {
     const previous = notifications;
     setNotifications((items) => items.map((item) => item.id === id ? { ...item, read: true } : item));
     try {
-      const response = await fetch(`http://localhost:3000/api/notifications/${id}/read`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      const response = await apiFetch(`http://localhost:3000/api/notifications/${id}/read`, { method: 'PATCH' });
       if (!response.ok) setNotifications(previous);
     } catch {
       setNotifications(previous);
@@ -101,10 +95,7 @@ export function Navigation() {
   const confirmWaitlistOffer = async (notification: NotificationItem) => {
     if (!notification.waitlistEntryId) return;
     try {
-      const response = await fetch(`http://localhost:3000/api/waitlist/${notification.waitlistEntryId}/confirm`, {
-        method: 'POST',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      const response = await apiFetch(`http://localhost:3000/api/waitlist/${notification.waitlistEntryId}/confirm`, { method: 'POST' });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || 'Impossible de confirmer ce créneau.');
       setNotifications((items) => items.map((item) => item.id === notification.id
@@ -121,13 +112,10 @@ export function Navigation() {
       ? { ...item, read: true, action: null }
       : item));
     try {
-      const response = await fetch(`http://localhost:3000/api/notifications/${notification.id}/action-complete`, {
-        method: 'PATCH',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
-      });
+      const response = await apiFetch(`http://localhost:3000/api/notifications/${notification.id}/action-complete`, { method: 'PATCH' });
       if (!response.ok) throw new Error('Impossible de clôturer cette notification.');
     } catch (error) {
-      console.error('Impossible de clôturer cette notification:', error);
+      
     }
   };
 
@@ -143,18 +131,15 @@ export function Navigation() {
   };
 
   const handleLogout = () => {
+    void apiFetch('http://localhost:3000/api/users/logout', { method: 'POST' });
     setUser(null);
-    setToken(null);
-    localStorage.removeItem("user");
     localStorage.removeItem("token");
     localStorage.removeItem("appoiment");
     navigate("/");
   };
 
   const uselrole = () => {
-    const storedUser = localStorage.getItem("user");
-    const parsedUser = JSON.parse(storedUser);
-    if (parsedUser?.data?.role === "doctor") {
+    if (user?.data?.role === "doctor") {
       navigate("/doctor");
     } else {
       navigate("/client");
@@ -164,17 +149,6 @@ export function Navigation() {
   const handleClose = () => {
     setIsChatOpen(false);
   };
-
-  const storedAppiment = localStorage.getItem("appoiment");
-  const parsed = JSON.parse(storedAppiment || "{}");
-  const appointmentList = parsed.appoiment || [];
-  const selectedAppointment =
-    appointmentList.find((appt: any) => appt.status === "completed") ||
-    appointmentList[0];
-  const appointmentId = selectedAppointment?._id;
-  const otherUserId =
-    selectedAppointment?.patientId?._id || selectedAppointment?.doctorId?._id;
-  const otherUserName = selectedAppointment?.patientId?.firstName || "John Doe";
 
   const isProfileIncomplete = !user?.data?.firstName;
 

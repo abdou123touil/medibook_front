@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from "../lib/api";
 import { format, addDays, startOfWeek, isSameDay } from 'date-fns';
 import { ar, enUS, fr } from 'date-fns/locale';
 import { Calendar as CalendarIcon, Plus, X, Ban, Repeat } from 'lucide-react';
@@ -31,7 +32,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
   const [absences, setAbsences] = useState<DoctorAbsence[]>([]);
   const [selectedAbsence, setSelectedAbsence] = useState<DoctorAbsence | null>(null);
   const [isCancellingAbsence, setIsCancellingAbsence] = useState(false);
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
 
@@ -45,52 +46,44 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
 
   // Fetch availability data from the backend on component mount
   useEffect(() => {
-    const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
-    const userId = storedUser?.data?.id;
-    const token = localStorage.getItem('token');
-
-    if (!userId || !token) {
-      console.error('User ID or token is missing', { userId, token });
+    const userId = user?.data?.id;
+    if (!userId || !isAuthenticated) {
       toast.error(t('authenticationRequired'));
       return;
     }
 
     const fetchAvailability = async () => {
       try {
-        console.log('Fetching availability for userId:', userId);
-        const response = await fetch(`http://localhost:3000/api/users/get-availability?userId=${userId}`, {
+        
+        const response = await apiFetch(`http://localhost:3000/api/users/get-availability?userId=${userId}`, {
           method: 'GET',
-          headers: {
-            'Authorization': `Bearer ${token}`,
-          },
         });
 
         const data = await response.json();
-        console.log('Availability response:', data);
+        
 
         if (response.ok && data.availability) {
-          console.log('Fetched availability:', data.availability);
+          
           setAvailability(data.availability);
           onUpdateAvailability(data.availability);
           try {
-            const absencesResponse = await fetch('http://localhost:3000/api/users/doctor-absences', {
-              headers: { Authorization: `Bearer ${token}` },
+            const absencesResponse = await apiFetch('http://localhost:3000/api/users/doctor-absences', {
             });
             if (absencesResponse.ok) {
               const absencesData = await absencesResponse.json();
               setAbsences(absencesData.absences || []);
             }
           } catch (error) {
-            console.error('Impossible de charger les périodes bloquées:', error);
+            
           }
         } else {
-          console.error('Failed to fetch availability:', data.error || 'Unknown error');
+          
           toast.error(t('availabilityLoadError'));
           setAvailability({});
           onUpdateAvailability({});
         }
       } catch (error) {
-        console.error('Error fetching availability:', error);
+        
         toast.error(t('availabilityLoadError'));
         setAvailability({});
         onUpdateAvailability({});
@@ -118,14 +111,12 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
 
     // Make API call to update availability in the backend
     try {
-      const token = localStorage.getItem('token');
       const userId = user?.data?.id;
-      console.log('Sending availability update:', { userId, availability: updatedAvailability });
-      const response = await fetch('http://localhost:3000/api/users/update-availability', {
+      
+      const response = await apiFetch('http://localhost:3000/api/users/update-availability', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
         },
         body: JSON.stringify({
           userId,
@@ -134,19 +125,19 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
       });
 
       const data = await response.json();
-      console.log('Update availability response:', data);
+      
 
       if (response.ok) {
-        console.log('Disponibilité mise à jour avec succès.');
+        
         toast.success(t('availabilityUpdated'));
       } else {
-        console.error('Erreur lors de la mise à jour de la disponibilité:', data.error);
+        
         toast.error(data.error || t('availabilityUpdateError'));
         setAvailability(availability);
         onUpdateAvailability(availability);
       }
     } catch (error) {
-      console.error('Erreur lors de la mise à jour de la disponibilité:', error);
+      
       toast.error(t('availabilityUpdateError'));
       setAvailability(availability);
       onUpdateAvailability(availability);
@@ -166,12 +157,10 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     if (!absenceStartDate || !absenceEndDate || absenceStartDate > absenceEndDate || isSavingAbsence) return;
     setIsSavingAbsence(true);
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/users/doctor-absence', {
+      const response = await apiFetch('http://localhost:3000/api/users/doctor-absence', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({ startDate: absenceStartDate, endDate: absenceEndDate, reason: absenceReason.trim() }),
       });
@@ -194,9 +183,8 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     if (!selectedAbsence || isCancellingAbsence) return;
     setIsCancellingAbsence(true);
     try {
-      const response = await fetch(`http://localhost:3000/api/users/doctor-absence/${selectedAbsence._id}/cancel`, {
+      const response = await apiFetch(`http://localhost:3000/api/users/doctor-absence/${selectedAbsence._id}/cancel`, {
         method: 'PUT',
-        headers: { Authorization: `Bearer ${localStorage.getItem('token')}` },
       });
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || t('cancelBlockError'));
@@ -242,11 +230,10 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     setAvailability(updatedAvailability);
     onUpdateAvailability(updatedAvailability);
     try {
-      const response = await fetch('http://localhost:3000/api/users/update-availability', {
+      const response = await apiFetch('http://localhost:3000/api/users/update-availability', {
         method: 'PUT',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${localStorage.getItem('token')}`,
         },
         body: JSON.stringify({ availability: updatedAvailability }),
       });

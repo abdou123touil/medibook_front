@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from "../lib/api";
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
@@ -86,10 +87,8 @@ export function Profile() {
   useEffect(() => {
     const fetchProfile = async () => {
       try {
-        const token = localStorage.getItem('token');
-        const response = await fetch('http://localhost:3000/api/users/profile', {
+        const response = await apiFetch('http://localhost:3000/api/users/profile', {
           headers: {
-            Authorization: `Bearer ${token}`,
           },
         });
 
@@ -98,7 +97,7 @@ export function Profile() {
         }
 
         const data = await response.json();
-        console.log('Fetched profile data:', data);
+        
         setSpes(data.specialities || []);
         setProfile(data);
         setFormData({
@@ -114,7 +113,7 @@ export function Profile() {
           lng: data.location?.lng || defaultCenter.lng,
         });
       } catch (error) {
-        console.error('Erreur:', error);
+        
           toast.error(t('profileLoadError'));
       }
     };
@@ -130,12 +129,12 @@ export function Profile() {
           }));
         },
         (error) => {
-          console.warn('Erreur de géolocalisation:', error.message);
+          
           toast.error(t('locationUnavailable'));
         }
       );
     } else {
-      console.warn('Géolocalisation non supportée par le navigateur.');
+      
     }
 
     fetchProfile();
@@ -186,12 +185,10 @@ export function Profile() {
     }
 
     try {
-      const token = localStorage.getItem('token');
-      const response = await fetch('http://localhost:3000/api/users/reset-password', {
+      const response = await apiFetch('http://localhost:3000/api/users/reset-password', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           oldPassword: passwordData.oldPassword,
@@ -209,7 +206,7 @@ export function Profile() {
       setPasswordData({ newPassword: '', confirmNewPassword: '', oldPassword: '' });
       setIsPasswordModalOpen(false);
     } catch (error) {
-      console.error('Erreur:', error);
+      
       toast.error((error as Error).message || t('errorTryAgain'));
     } finally {
       setPasswordLoading(false);
@@ -231,7 +228,6 @@ export function Profile() {
     setLoading(true);
 
     try {
-      const token = localStorage.getItem('token');
       const formDataToSend = new FormData();
       formDataToSend.append('firstName', formData.firstName);
       formDataToSend.append('lastName', formData.lastName);
@@ -248,23 +244,11 @@ export function Profile() {
         formDataToSend.append('profileImage', formData.profileImage);
       }
 
-      console.log('Sending form data:', {
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        phoneNumber: formData.phoneNumber,
-        address: formData.address,
-        lat: formData.lat,
-        lng: formData.lng,
-        speciality: formData.speciality,
-        hospitalName: formData.hospitalName,
-        profileImage: formData.profileImage ? 'File present' : 'No file',
-      });
+      
 
-      const response = await fetch('http://localhost:3000/api/users/profile', {
+      const response = await apiFetch('http://localhost:3000/api/users/profile', {
         method: 'PUT',
         headers: {
-          Authorization: `Bearer ${token}`,
         },
         body: formDataToSend,
       });
@@ -279,7 +263,7 @@ export function Profile() {
       setIsPasswordVerified(false); // Reset verification after saving
       toast.success(t('profileUpdated'));
     } catch (error) {
-      console.error('Erreur:', error);
+      
       toast.error((error as Error).message || t('errorTryAgain'));
     } finally {
       setLoading(false);

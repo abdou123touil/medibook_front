@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from "../lib/api";
 import { X } from 'lucide-react';
 import { Calendar } from './Calendar';
 import { format } from 'date-fns';
@@ -8,6 +9,7 @@ import { motion } from 'framer-motion';
 import toast from 'react-hot-toast';
 import clsx from 'clsx';
 import { useTranslation } from 'react-i18next';
+import { useAuthStore } from '../store/auth';
 
 // Liste des symptômes par spécialité
 const symptomsBySpeciality: Record<string, string[]> = {
@@ -90,6 +92,7 @@ interface BookingModalProps {
 
 export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
   const { t, i18n } = useTranslation();
+  const { isAuthenticated } = useAuthStore();
   const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [selectedTime, setSelectedTime] = useState<string | null>(null);
@@ -126,7 +129,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
         end.setDate(end.getDate() + 14);
         const endDate = format(end, 'yyyy-MM-dd');
 
-        const slotsResponse = await fetch(
+        const slotsResponse = await apiFetch(
           `http://localhost:3000/api/users/doctors/${doctor._id}/available-slots?startDate=${startDate}&endDate=${endDate}`
         );
         if (!slotsResponse.ok) {
@@ -138,7 +141,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
         setLiveAvailability(slotsData.availableSlots || {});
         setBlockedPeriods(slotsData.blockedPeriods || []);
       } catch (error) {
-        if (isActive) console.error('Erreur de mise à jour des disponibilités:', error);
+        
       }
     };
 
@@ -169,9 +172,7 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
       return;
     }
 
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    const token = localStorage.getItem('token');
-    const patientId = user?.id || user?.data?.id;
+    const patientId = useAuthStore.getState().user?.data?.id;
 
     if (!patientId) {
       toast.error(t('userNotRecognized'));
@@ -193,11 +194,10 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
     }
 
     try {
-      const response = await fetch('http://localhost:3000/api/appointments', {
+      const response = await apiFetch('http://localhost:3000/api/appointments', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          Authorization: `Bearer ${token}`,
         },
         body: JSON.stringify({
           doctorId: doctor._id,
@@ -214,27 +214,26 @@ export function BookingModal({ isOpen, onClose, doctor }: BookingModalProps) {
         throw new Error(data.message || t('bookingError'));
       }
 
-      console.log('Rendez-vous créé:', data);
+      
       toast.success(data.message || t('appointmentBooked'));
       handleClose();
     } catch (error) {
-      console.error('Erreur:', error);
+      
       toast.error(error instanceof Error ? error.message : t('errorTryAgain'));
     }
   };
 
   const handleJoinWaitlist = async () => {
     if (joiningWaitlist || waitlistJoined) return;
-    const token = localStorage.getItem('token');
-    if (!token) {
+    if (!isAuthenticated) {
       toast.error(t('loginForWaitlist'));
       return;
     }
     setJoiningWaitlist(true);
     try {
-      const response = await fetch('http://localhost:3000/api/waitlist', {
+      const response = await apiFetch('http://localhost:3000/api/waitlist', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${token}` },
+        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ doctorId: doctor._id, date: format(selectedDate, 'yyyy-MM-dd'), symptoms: selectedSymptoms.join(', ') }),
       });
       const data = await response.json();

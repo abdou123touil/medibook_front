@@ -4,6 +4,7 @@ import { format } from 'date-fns';
 import { fr } from 'date-fns/locale';
 import { useParams } from 'react-router-dom';
 import { useTranslation } from 'react-i18next';
+import { apiFetch } from '../lib/api';
 
 interface Review {
   id: string;
@@ -20,30 +21,22 @@ export function DoctorReviews() {
   const [reviews, setReviews] = useState<Review[]>([]);
   const [newReview, setNewReview] = useState({ rating: 0, comment: '' });
   useEffect(() => {
-    // Fetch reviews when component mounts
-    axios
-      .get(`/api/appointments/doctor/${doctorId}/reviews`)
-      .then((response) => {
-        setReviews(response.data);
-      })
-      .catch((error) => {
-        console.error('Error fetching reviews:', error);
-      });
+    apiFetch(`http://localhost:3000/api/reviews/doctor/${doctorId}`)
+      .then((response) => response.ok ? response.json() : [])
+      .then((data) => setReviews(Array.isArray(data) ? data : []))
+      .catch(() => setReviews([]));
   }, [doctorId]);
 
   const handleSubmitReview = (e: React.FormEvent) => {
     e.preventDefault();
-    const user = JSON.parse(localStorage.getItem("user") || "{}"); // Assuming user info is stored in localStorage
-
-    axios
-      .post(`/api/appointments/appointment/${doctorId}/review`, {
-        patientName: user.name, // Ensure patient name is included
+    apiFetch(`http://localhost:3000/api/reviews/doctor/${doctorId}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
         rating: newReview.rating,
         comment: newReview.comment,
-      })
-      .catch((error) => {
-        console.error('Error submitting review:', error);
-      });
+      }),
+    });
   };
 
   return (

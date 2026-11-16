@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { apiFetch } from "../lib/api";
 import { format, parseISO } from 'date-fns';
 import { ar, enUS, fr } from 'date-fns/locale';
 import { TrendingUp, Users, AlertTriangle, BarChart as BarChartIcon, Clock, UserCheck, PieChart as PieChartIcon } from 'lucide-react';
@@ -70,9 +71,9 @@ const COLORS = ['#4F46E5', '#10B981', '#F59E0B', '#EF4444'];
 export function Statistics() {
   const { t, i18n } = useTranslation();
   const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
-  console.log('Statistics component rendering');
+  
 
-  const { user } = useAuthStore();
+  const { user, isAuthenticated } = useAuthStore();
   const [stats, setStats] = useState<DailyStats[]>([]);
   const [incompleteDetailsCount, setIncompleteDetailsCount] = useState(0);
   const [noShowRate, setNoShowRate] = useState(0);
@@ -95,14 +96,11 @@ export function Statistics() {
     key: 'selection',
   });
 
-  //console.log('Statistics hooks initialized, user:', user);
-
   const loadStats = async () => {
     try {
       setIsLoading(true);
       setError(null);
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error(t('authenticationTokenMissing'));
       }
 
@@ -111,9 +109,8 @@ export function Statistics() {
         url += `&startDate=${dateRange.startDate.toISOString()}&endDate=${dateRange.endDate.toISOString()}`;
       }
 
-      const response = await fetch(url, {
+      const response = await apiFetch(url, {
         headers: {
-          Authorization: `Bearer ${token}`,
         },
       });
 
@@ -123,14 +120,12 @@ export function Statistics() {
       }
 
       const data = await response.json();
-      //console.log('Fetched stats:', data);
 
       if (!Array.isArray(data.stats)) {
         throw new Error(t('statisticsInvalidResponse'));
       }
 
       const formattedStats = data.stats.map((stat: DailyStats) => {
-        //console.log('Processing stat:', stat);
         return {
           ...stat,
           date: format(
@@ -140,7 +135,6 @@ export function Statistics() {
           ),
         };
       });
-      //console.log('Formatted stats:', formattedStats);
       setStats(formattedStats);
       setIncompleteDetailsCount(data.incompleteDetailsCount || 0);
       setNoShowRate(data.noShowRate || 0);
@@ -148,7 +142,6 @@ export function Statistics() {
       setPeakHours(data.peakHours || []);
       setStatusDistribution(data.statusDistribution || []);
     } catch (error) {
-      //console.error('Error loading statistics:', error);
       setError('Erreur lors du chargement des statistiques');
     } finally {
       setIsLoading(false);
@@ -156,11 +149,7 @@ export function Statistics() {
   };
 
   const doctorId = user?.data?.id;
-  //console.log('Statistics component, doctorId:', doctorId, 'timeRange:', timeRange, 'statusFilter:', statusFilter, 'dateRange:', dateRange);
-  
-console.log('Statistics component, doctorId:', doctorId);
 useEffect(() => {
-    //console.log('Statistics useEffect triggered, doctorId:', doctorId, 'timeRange:', timeRange);
     if (!doctorId) {
       setError(t('authenticationRequired'));
       setIsLoading(false);
@@ -176,16 +165,14 @@ useEffect(() => {
   }, [doctorId, timeRange, statusFilter, dateRange]);
   const loadHistoricAppointments = async () => {
     try {
-      const token = localStorage.getItem('token');
-      if (!token) {
+      if (!isAuthenticated) {
         throw new Error(t('authenticationTokenMissing'));
       }
 
-      const response = await fetch(
+      const response = await apiFetch(
         `http://localhost:3000/api/appointments/doctor/${doctorId}`,
         {
           headers: {
-            Authorization: `Bearer ${token}`,
           },
         }
       );
@@ -198,7 +185,6 @@ useEffect(() => {
       }
 
       const data = await response.json();
-      //console.log('Fetched historic appointments:', data);
 
       if (!Array.isArray(data.appointments)) {
         throw new Error(
@@ -210,10 +196,8 @@ useEffect(() => {
         (apt: Appointment) =>
           apt.status === 'completed' || apt.status === 'cancelled'
       );
-      //console.log('Filtered historic appointments:', historicFiltered);
       setHistoricAppointments(historicFiltered);
     } catch (error) {
-      //console.error('Error loading historic appointments:', error);
       setError('Erreur lors du chargement des rendez-vous historiques');
     }
   };
@@ -223,7 +207,6 @@ useEffect(() => {
       (sum, stat) => sum + (type === 'revenue' ? stat.revenue : stat.patients),
       0
     );
-    //console.log(`Calculated ${type} total:`, total);
     if (type === 'revenue') {
       return `${total.toLocaleString('fr-FR')} DT`;
     }
@@ -298,7 +281,7 @@ useEffect(() => {
   };
 
   if (!user || user.data.role !== 'doctor') {
-    console.log('Redirecting from Statistics, user role:', user?.data?.role);
+    
     return <Navigate to="/" replace />;
   }
 
