@@ -51,6 +51,14 @@ interface PeakHour {
   count: number;
 }
 
+interface PaymentSummary {
+  amountCollected: number;
+  amountOutstanding: number;
+  paidConsultations: number;
+  partialConsultations: number;
+  unpaidConsultations: number;
+}
+
 interface IncompleteAppointment {
   _id: string;
   date: string;
@@ -89,6 +97,7 @@ export function Statistics() {
   const [noShowRate, setNoShowRate] = useState(0);
   const [recurrentPatients, setRecurrentPatients] = useState(0);
   const [peakHours, setPeakHours] = useState<PeakHour[]>([]);
+  const [paymentSummary, setPaymentSummary] = useState<PaymentSummary>({ amountCollected: 0, amountOutstanding: 0, paidConsultations: 0, partialConsultations: 0, unpaidConsultations: 0 });
   const [statusDistribution, setStatusDistribution] = useState<StatusData[]>([]);
   const [timeRange, setTimeRange] = useState<TimeRange>('month');
   const [statType, setStatType] = useState<StatType>('revenue');
@@ -154,6 +163,13 @@ export function Statistics() {
       setRecurrentPatients(data.recurrentPatients || 0);
       setPeakHours(data.peakHours || []);
       setStatusDistribution(data.statusDistribution || []);
+      setPaymentSummary({
+        amountCollected: Number(data.paymentSummary?.amountCollected) || 0,
+        amountOutstanding: Number(data.paymentSummary?.amountOutstanding) || 0,
+        paidConsultations: Number(data.paymentSummary?.paidConsultations) || 0,
+        partialConsultations: Number(data.paymentSummary?.partialConsultations) || 0,
+        unpaidConsultations: Number(data.paymentSummary?.unpaidConsultations) || 0,
+      });
     } catch (error) {
       setError('Erreur lors du chargement des statistiques');
     } finally {
@@ -425,6 +441,18 @@ useEffect(() => {
                 <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
                   {t('fromConsultations')}
                 </p>
+              </div>
+
+              <div className="rounded-2xl border border-emerald-200 bg-emerald-50/70 p-5 shadow-sm dark:border-emerald-900 dark:bg-emerald-950/20">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-emerald-800 dark:text-emerald-200"><TrendingUp className="h-5 w-5" />{t('amountCollected')}</h2>
+                <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{paymentSummary.amountCollected.toFixed(2)} DT</div>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{t('paidConsultationsCount', { count: paymentSummary.paidConsultations })} · {t('partialConsultationsCount', { count: paymentSummary.partialConsultations })}</p>
+              </div>
+
+              <div className="rounded-2xl border border-amber-200 bg-amber-50/70 p-5 shadow-sm dark:border-amber-900 dark:bg-amber-950/20">
+                <h2 className="mb-4 flex items-center gap-2 text-sm font-semibold text-amber-800 dark:text-amber-200"><AlertTriangle className="h-5 w-5" />{t('amountOutstanding')}</h2>
+                <div className="text-3xl font-bold tracking-tight text-slate-900 dark:text-white">{paymentSummary.amountOutstanding.toFixed(2)} DT</div>
+                <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">{t('unpaidConsultationsCount', { count: paymentSummary.unpaidConsultations })}</p>
               </div>
 
               <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:-translate-y-0.5 hover:shadow-md dark:border-slate-800 dark:bg-slate-900">

@@ -14,11 +14,17 @@ interface RecordAppointment {
   time: string;
   status: string;
   symptoms: string;
+  isFollowUp?: boolean;
 }
 
 interface ConsultationEntry {
   appointmentId: string;
   consultationDate: string;
+  price?: number;
+  amountPaid?: number;
+  paymentStatus?: 'unpaid' | 'partial' | 'paid' | 'not_applicable';
+  paymentMethod?: 'cash' | 'card' | 'transfer' | 'other' | null;
+  paymentUpdatedAt?: string | null;
   symptoms: string;
   diagnosis: string;
   treatment: string;
@@ -121,7 +127,7 @@ interface PatientRecordModalProps {
   onSaved?: () => void;
 }
 
-type PrintableDocument = 'prescription' | 'certificate' | 'referral' | 'summary' | 'attendance';
+type PrintableDocument = 'prescription' | 'certificate' | 'referral' | 'summary' | 'attendance' | 'receipt';
 
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, (character) => ({
   '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;',
@@ -144,6 +150,9 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
   const [medicalHistory, setMedicalHistory] = useState('');
   const [currentMedications, setCurrentMedications] = useState('');
   const [diagnosis, setDiagnosis] = useState('');
+  const [consultationPrice, setConsultationPrice] = useState('70');
+  const [amountPaid, setAmountPaid] = useState('0');
+  const [paymentMethod, setPaymentMethod] = useState('');
   const [treatment, setTreatment] = useState('');
   const [prescriptions, setPrescriptions] = useState<PrescriptionItem[]>([]);
   const [prescriptionDraft, setPrescriptionDraft] = useState<PrescriptionItem>({ ...emptyPrescription });
@@ -172,8 +181,12 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
     [appointments, selectedAppointmentId, appointment]
   );
   const selectedSavedConsultation = consultations.find((entry) => String(entry.appointmentId) === selectedAppointmentId);
+  const isFollowUpConsultation = Boolean(selectedAppointment?.isFollowUp);
   const hasUnbookedLegacyFollowUp = Boolean(selectedSavedConsultation?.followUpAt && !selectedSavedConsultation.followUpAppointmentId);
   const currentPrescriptions = prescriptions.filter((item) => item.name.trim());
+  const consultationTotal = isFollowUpConsultation ? 0 : Number(consultationPrice || 0);
+  const amountPaidValue = Number.isFinite(Number(amountPaid)) ? Number(amountPaid) : 0;
+  const amountRemaining = Math.max(0, consultationTotal - amountPaidValue);
   const followUpSlotOptions = Object.entries(availableFollowUpSlots)
     .flatMap(([date, times]) => times.map((time) => ({ value: `${date}T${time}`, date, time })))
     .sort((a, b) => a.value.localeCompare(b.value));
@@ -184,6 +197,9 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
   const isConsultationSaved = Boolean(selectedSavedConsultation
     && selectedSavedConsultation.diagnosis === diagnosis
     && selectedSavedConsultation.treatment === treatment
+    && Number(selectedSavedConsultation.price ?? (isFollowUpConsultation ? 0 : 70)) === consultationTotal
+    && Number(selectedSavedConsultation.amountPaid ?? 0) === amountPaidValue
+    && (selectedSavedConsultation.paymentMethod || '') === paymentMethod
     && selectedSavedConsultation.notes === notes
     && JSON.stringify(normalizePrescriptions(selectedSavedConsultation.prescriptions)) === JSON.stringify(currentPrescriptions)
     && (selectedSavedConsultation.followUpAt ? new Date(selectedSavedConsultation.followUpAt).getTime() : null)
@@ -201,6 +217,10 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
     }
     if (type === 'referral' && !referralRecipient.trim()) {
       toast.error(t('referralRecipientRequired'));
+      return;
+    }
+    if (type === 'receipt' && amountPaidValue <= 0) {
+      toast.error(t('receiptRequiresPayment'));
       return;
     }
 
@@ -221,7 +241,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
     }
     const titleByType: Record<PrintableDocument, string> = {
       prescription: t('medicalPrescription'), certificate: t('medicalCertificate'),
-      referral: t('referralLetter'), summary: t('consultationSummary'), attendance: t('attendanceCertificate'),
+      referral: t('referralLetter'), summary: t('consultationSummary'), attendance: t('attendanceCertificate'), receipt: t('paymentReceipt'),
     };
     const contentByType: Record<PrintableDocument, string> = {
       prescription: `<h2>${t('prescription')}</h2><ol>${currentPrescriptions.map((item) => `<li><strong>${escapeHtml(item.name)}</strong>${item.dosage ? `<p>${t('dosage')}: ${escapeHtml(displayPrescriptionValue(item.dosage, t))}</p>` : ''}${item.route ? `<p>${t('routeOfAdministration')}: ${escapeHtml(displayPrescriptionValue(item.route, t))}</p>` : ''}${item.frequency ? `<p>${t('frequency')}: ${escapeHtml(displayPrescriptionValue(item.frequency, t))}</p>` : ''}${item.duration ? `<p>${t('duration')}: ${escapeHtml(displayPrescriptionValue(item.duration, t))}</p>` : ''}${item.quantity ? `<p>${t('quantity')}: ${escapeHtml(item.quantity)}</p>` : ''}${item.instructions ? `<p>${t('instructions')}: ${escapeHtml(item.instructions)}</p>` : ''}</li>`).join('')}</ol>${treatment.trim() ? `<h2>${t('recommendations')}</h2><p>${escapeHtml(treatment).replace(/\n/g, '<br>')}</p>` : ''}`,
@@ -229,6 +249,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
       referral: `<p>${t('referralRecipient')}: ${escapeHtml(referralRecipient.trim())}</p><p>${t('referralReason')}: ${escapeHtml(referralReason.trim() || diagnosis || treatment || t('notProvided'))}</p>${diagnosis.trim() ? `<p><strong>${t('diagnosis')} :</strong> ${escapeHtml(diagnosis)}</p>` : ''}`,
       summary: `<p><strong>${t('reportedReason')} :</strong> ${escapeHtml(selectedAppointment?.symptoms || t('notProvided'))}</p>${diagnosis.trim() ? `<p><strong>${t('diagnosis')} :</strong> ${escapeHtml(diagnosis)}</p>` : ''}${treatment.trim() ? `<p><strong>${t('recommendations')} :</strong><br>${escapeHtml(treatment).replace(/\n/g, '<br>')}</p>` : ''}${currentPrescriptions.length ? `<h2>${t('prescription')}</h2><ul>${currentPrescriptions.map((item) => `<li>${escapeHtml(formatPrescription(item, t))}</li>`).join('')}</ul>` : ''}${notes.trim() ? `<h2>${t('notes')}</h2><p>${escapeHtml(notes).replace(/\n/g, '<br>')}</p>` : ''}${followUpAt ? `<p><strong>${t('followUpRecommended')} :</strong> ${escapeHtml(format(new Date(followUpAt), 'dd/MM/yyyy HH:mm', { locale: fr }))}</p>` : ''}`,
       attendance: `<p>${t('attendanceBody', { patient: escapeHtml(patientName), date: dateLabel, time: escapeHtml(selectedAppointment?.time || appointment.time) })}</p>`,
+      receipt: `<p><strong>${t('receiptNumber')}:</strong> ${escapeHtml(String(selectedAppointment?._id || appointment._id).slice(-8).toUpperCase())}</p><p><strong>${t('receiptIssuedOn')}:</strong> ${format(new Date(), 'dd/MM/yyyy', { locale: fr })}</p><p><strong>${t('paymentStatus')}:</strong> ${t(amountRemaining === 0 ? 'paymentPaid' : 'paymentPartial')}</p><p><strong>${t('price')}:</strong> ${consultationTotal.toFixed(2)} DT</p><p><strong>${t('amountPaid')}:</strong> ${amountPaidValue.toFixed(2)} DT</p><p><strong>${t('amountRemaining')}:</strong> ${amountRemaining.toFixed(2)} DT</p><p><strong>${t('paymentMethod')}:</strong> ${t(`paymentMethod_${paymentMethod || 'other'}`)}</p>`,
     };
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
@@ -285,18 +306,17 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
         setAllergies(record?.allergies || '');
         setMedicalHistory(record?.medicalHistory || '');
         setCurrentMedications(record?.currentMedications || '');
-        const hasClinicalData = (entry: ConsultationEntry) => Boolean(
-          entry.diagnosis?.trim() || entry.treatment?.trim() || entry.notes?.trim() || entry.prescriptions?.length
-        );
         const requestedEntry = entries.find((item) => String(item.appointmentId) === appointment._id);
-        const latestSavedEntry = entries.find(hasClinicalData);
-        const initialEntry = requestedEntry && hasClinicalData(requestedEntry)
-          ? requestedEntry
-          : latestSavedEntry || requestedEntry;
+        // Each appointment owns its own consultation record. Never prefill a new visit
+        // with the latest clinical data from a previous visit for this patient.
+        const initialEntry = requestedEntry;
         setHasUnrecognizedPrescriptions((initialEntry?.prescriptions || []).some((item) => !normalizePrescriptions([item]).length));
         const initialAppointmentId = String(initialEntry?.appointmentId || appointment._id);
         setSelectedAppointmentId(initialAppointmentId);
         setDiagnosis(initialEntry?.diagnosis || '');
+        setConsultationPrice(String(initialEntry?.price ?? (appointment.isFollowUp ? 0 : 70)));
+        setAmountPaid(String(initialEntry?.amountPaid ?? 0));
+        setPaymentMethod(initialEntry?.paymentMethod || '');
         setTreatment(initialEntry?.treatment || '');
         setPrescriptions(normalizePrescriptions(initialEntry?.prescriptions));
         setNotes(initialEntry?.notes || '');
@@ -348,7 +368,11 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
 
   useEffect(() => {
     const entry = consultations.find((item) => String(item.appointmentId) === selectedAppointmentId);
+    const selected = appointments.find((item) => item._id === selectedAppointmentId);
     setDiagnosis(entry?.diagnosis || '');
+    setConsultationPrice(String(entry?.price ?? (selected?.isFollowUp ? 0 : 70)));
+    setAmountPaid(String(entry?.amountPaid ?? 0));
+    setPaymentMethod(entry?.paymentMethod || '');
     setTreatment(entry?.treatment || '');
     setPrescriptions(normalizePrescriptions(entry?.prescriptions));
     setHasUnrecognizedPrescriptions((entry?.prescriptions || []).some((item) => !normalizePrescriptions([item]).length));
@@ -356,7 +380,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
     setMedicationSuggestions([]);
     setNotes(entry?.notes || '');
     setFollowUpAt(toLocalDateTimeInput(entry?.followUpAt));
-  }, [selectedAppointmentId, consultations]);
+  }, [selectedAppointmentId, consultations, appointments]);
 
   useEffect(() => {
     const query = prescriptionDraft.name.trim();
@@ -444,6 +468,16 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
     event.preventDefault();
     setIsSaving(true);
     try {
+      const prescriptionsToSave = [...currentPrescriptions];
+      const draftName = prescriptionDraft.name.trim();
+      if (draftName) {
+        const draft = Object.fromEntries(
+          Object.entries(prescriptionDraft).map(([key, value]) => [key, value === '__custom__' ? '' : value])
+        ) as PrescriptionItem;
+        const savedDraft = { ...draft, name: draftName };
+        if (editingPrescriptionIndex === null) prescriptionsToSave.push(savedDraft);
+        else prescriptionsToSave[editingPrescriptionIndex] = savedDraft;
+      }
       const response = await apiFetch(`http://localhost:3000/api/patients/${patientId}/record`, {
         method: 'PUT',
         headers: {
@@ -455,9 +489,12 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
           currentMedications,
           consultation: {
             appointmentId: selectedAppointmentId,
+            price: isFollowUpConsultation ? 0 : Number(consultationPrice),
+            amountPaid: isFollowUpConsultation ? 0 : amountPaidValue,
+            paymentMethod: isFollowUpConsultation || amountPaidValue === 0 ? null : paymentMethod,
             diagnosis,
             treatment,
-            prescriptions: currentPrescriptions,
+            prescriptions: prescriptionsToSave,
             notes,
             followUpAt: followUpAt ? new Date(followUpAt).toISOString() : null,
             followUpDate: followUpAt ? followUpAt.slice(0, 10) : null,
@@ -468,6 +505,12 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
       const data = await response.json();
       if (!response.ok) throw new Error(data.error || t('patientRecordSaveError'));
       setConsultations(data.record.consultations || []);
+      const savedConsultation = (data.record.consultations || []).find((entry: ConsultationEntry) => String(entry.appointmentId) === selectedAppointmentId);
+      setPrescriptions(normalizePrescriptions(savedConsultation?.prescriptions ?? prescriptionsToSave));
+      setAmountPaid(String(savedConsultation?.amountPaid ?? 0));
+      setPaymentMethod(savedConsultation?.paymentMethod || '');
+      setPrescriptionDraft({ ...emptyPrescription });
+      setEditingPrescriptionIndex(null);
       setHasUnrecognizedPrescriptions(false);
       toast.success(t('patientRecordSaved'));
       onSaved?.();
@@ -521,7 +564,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
                   };
                   const fieldKeys: Record<string, string> = {
                     allergies: 'allergies', medicalHistory: 'medicalHistory', currentMedications: 'currentMedications',
-                    'consultation.diagnosis': 'diagnosis', 'consultation.treatment': 'treatmentRecommendations',
+                    'consultation.price': 'priceDT', 'consultation.diagnosis': 'diagnosis', 'consultation.treatment': 'treatmentRecommendations',
                     'consultation.prescriptions': 'prescription', 'consultation.notes': 'notes', 'consultation.followUpAt': 'followUpRecommended',
                   };
                   const changedLabels = entry.changedFields.map((field) => t(fieldKeys[field] || field));
@@ -565,6 +608,37 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
                 </select>
               </label>
               <p className="text-sm text-slate-500 mt-2">{t('reportedReason')}: {selectedAppointment?.symptoms || t('notProvided')}</p>
+              <label className="mt-4 block max-w-xs text-sm font-medium">{t('priceDT')}
+                {isFollowUpConsultation ? (
+                  <div className="mt-1 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2.5 text-emerald-800 dark:border-emerald-900 dark:bg-emerald-950/30 dark:text-emerald-200">0 DT · {t('freeFollowUpConsultation')}</div>
+                ) : (
+                  <input type="number" min={Number(consultationPrice) < 70 ? consultationPrice : 70} max="1000000" step="0.01" required value={consultationPrice} onChange={(event) => setConsultationPrice(event.target.value)} className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950" />
+                )}
+                {!isFollowUpConsultation && <span className="mt-1 block text-xs font-normal text-slate-500">{t('minimumConsultationFee')}</span>}
+              </label>
+              <div className="mt-4 rounded-2xl border border-slate-200 bg-slate-50/70 p-4 dark:border-slate-700 dark:bg-slate-950/50">
+                <h4 className="font-semibold">{t('paymentTracking')}</h4>
+                {isFollowUpConsultation ? (
+                  <p className="mt-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:bg-emerald-950/30 dark:text-emerald-200">{t('freeFollowUpConsultation')} · 0 DT</p>
+                ) : <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                  <label className="text-sm font-medium">{t('amountPaid')} (DT)
+                    <input type="number" min="0" max={consultationTotal} step="0.01" value={amountPaid} onChange={(event) => setAmountPaid(event.target.value)} className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950" />
+                  </label>
+                  <label className="text-sm font-medium">{t('paymentMethod')}
+                    <select value={paymentMethod} required={amountPaidValue > 0} onChange={(event) => setPaymentMethod(event.target.value)} className="mt-1 w-full rounded-xl border p-3 dark:bg-slate-950">
+                      <option value="">{t('select')}</option>
+                      <option value="cash">{t('paymentMethod_cash')}</option>
+                      <option value="card">{t('paymentMethod_card')}</option>
+                      <option value="transfer">{t('paymentMethod_transfer')}</option>
+                      <option value="other">{t('paymentMethod_other')}</option>
+                    </select>
+                  </label>
+                </div>}
+                <div className="mt-3 flex flex-wrap gap-x-5 gap-y-1 text-sm">
+                  <span><strong>{t('paymentStatus')}:</strong> {t(isFollowUpConsultation ? 'paymentNotApplicable' : amountPaidValue <= 0 ? 'paymentUnpaid' : amountRemaining <= 0 ? 'paymentPaid' : 'paymentPartial')}</span>
+                  <span><strong>{t('amountRemaining')}:</strong> {amountRemaining.toFixed(2)} DT</span>
+                </div>
+              </div>
               {consultations.length > 0 && (
                 <details className="mt-4 rounded-xl border dark:border-slate-800">
                   <summary className="cursor-pointer px-4 py-3 font-medium">
@@ -586,6 +660,8 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
                             {t('viewEdit')}
                           </button>
                         </div>
+                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300"><strong>{t('price')}:</strong> {entry.price ?? (appointments.find((item) => item._id === String(entry.appointmentId))?.isFollowUp ? 0 : 70)} DT</p>
+                        <p className="mt-1 text-sm text-slate-600 dark:text-slate-300"><strong>{t('paymentStatus')}:</strong> {t(entry.paymentStatus === 'paid' ? 'paymentPaid' : entry.paymentStatus === 'partial' ? 'paymentPartial' : entry.paymentStatus === 'not_applicable' || appointments.find((item) => item._id === String(entry.appointmentId))?.isFollowUp ? 'paymentNotApplicable' : 'paymentUnpaid')} · {t('amountPaid')}: {(entry.amountPaid ?? 0).toFixed(2)} DT</p>
                         {entry.diagnosis && <p className="mt-2 text-sm"><strong>{t('diagnosis')}:</strong> {entry.diagnosis}</p>}
                         {entry.treatment && <p className="mt-1 text-sm"><strong>{t('recommendations')}:</strong> {entry.treatment}</p>}
                         {entry.prescriptions?.length > 0 && <div className="mt-2 text-sm"><strong>{t('prescription')}:</strong><ul className="mt-1 list-disc pl-5">{normalizePrescriptions(entry.prescriptions).map((item, index) => <li key={`${item.name}-${index}`}>{formatPrescription(item, t)}</li>)}</ul></div>}
@@ -670,6 +746,7 @@ export function PatientRecordModal({ isOpen, onClose, patientId, patientName, ap
                 </div>
                 <button type="button" disabled={!isConsultationSaved} onClick={() => printClinicalDocument('summary')} className="flex items-center gap-3 rounded-xl border p-3 text-left hover:border-indigo-400 disabled:opacity-50 dark:border-slate-700"><ClipboardList className="h-5 w-5 text-indigo-600" /><span>{t('consultationSummary')}</span><Printer className="ml-auto h-4 w-4" /></button>
                 <button type="button" disabled={!isConsultationSaved} onClick={() => printClinicalDocument('attendance')} className="flex items-center gap-3 rounded-xl border p-3 text-left hover:border-indigo-400 disabled:opacity-50 dark:border-slate-700"><CalendarCheck className="h-5 w-5 text-indigo-600" /><span>{t('attendanceCertificate')}</span><Printer className="ml-auto h-4 w-4" /></button>
+                {amountPaidValue > 0 && <button type="button" disabled={!isConsultationSaved} onClick={() => printClinicalDocument('receipt')} className="flex items-center gap-3 rounded-xl border p-3 text-left hover:border-emerald-400 disabled:opacity-50 dark:border-slate-700"><FileText className="h-5 w-5 text-emerald-600" /><span>{t('paymentReceipt')}</span><Printer className="ml-auto h-4 w-4" /></button>}
               </div>
             </section>
 

@@ -42,6 +42,7 @@ export function ClientDashboard() {
   const [selectedDoctorId, setSelectedDoctorId] = useState<string | null>(null);
 
   useEffect(() => {
+    let active = true;
     const fetchDoctors = async () => {
       try {
         const response = await apiFetch("http://localhost:3000/api/users/doctors");
@@ -49,19 +50,28 @@ export function ClientDashboard() {
           throw new Error(t("errorLoadDoctors"));
         }
         const data = await response.json();
-        setTimeout(() => {
-          setDoctors(data);
-          setLoading(false);
-        }, 1000); // Attendre 1 seconde avant de masquer le loader
-      } catch (error) {
-        setTimeout(() => {
-          setError(t("errorLoadDoctors"));
-          setLoading(false);
-        }, 1000); // Même délai pour l'erreur
+        if (!active) return;
+        setDoctors(Array.isArray(data) ? data : []);
+        setError(null);
+      } catch {
+        if (!active) return;
+        if (doctors.length === 0) setError(t("errorLoadDoctors"));
+      } finally {
+        if (active) setLoading(false);
       }
     };
 
-    fetchDoctors();
+    void fetchDoctors();
+    const intervalId = window.setInterval(fetchDoctors, 5000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') void fetchDoctors();
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+    return () => {
+      active = false;
+      window.clearInterval(intervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, [t]);
 
   useEffect(() => {

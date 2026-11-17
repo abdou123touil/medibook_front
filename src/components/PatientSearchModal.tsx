@@ -10,13 +10,15 @@ interface SearchAppointment {
   time: string;
   status: string;
   symptoms: string;
-  patientId: string | { _id: string; firstName: string; lastName: string };
+  patientId: string | { _id: string; firstName: string; lastName: string; dateOfBirth?: string | null; phoneNumber?: string };
 }
 
 interface PatientSearchResult {
   id: string;
   firstName: string;
   lastName: string;
+  dateOfBirth?: string | null;
+  phoneNumber?: string;
   consultationCount: number;
   appointment: SearchAppointment;
 }
@@ -53,6 +55,8 @@ export function PatientSearchModal({ isOpen, onClose, appointments, onSelectPati
         id: patient._id,
         firstName: patient.firstName || '',
         lastName: patient.lastName || '',
+        dateOfBirth: patient.dateOfBirth || null,
+        phoneNumber: patient.phoneNumber || '',
         consultationCount: 1,
         appointment,
       });
@@ -61,16 +65,27 @@ export function PatientSearchModal({ isOpen, onClose, appointments, onSelectPati
   }, [appointments]);
 
   const normalizedSearch = search.trim().toLocaleLowerCase(i18n.language);
+  const normalizedDigits = search.replace(/\D/g, '');
   const filteredPatients = patients
     .filter((patient) => {
-      const searchableText = `${patient.firstName} ${patient.lastName} ${patient.appointment.symptoms || ''}`
+      const birthDate = patient.dateOfBirth ? new Date(patient.dateOfBirth) : null;
+      const formattedBirthDate = birthDate && !Number.isNaN(birthDate.getTime())
+        ? format(birthDate, 'dd/MM/yyyy', { locale: fr })
+        : '';
+      const birthDateDigits = birthDate && !Number.isNaN(birthDate.getTime())
+        ? format(birthDate, 'ddMMyyyy')
+        : '';
+      const searchableText = `${patient.firstName} ${patient.lastName} ${patient.appointment.symptoms || ''} ${patient.dateOfBirth || ''} ${formattedBirthDate}`
         .toLocaleLowerCase(i18n.language);
+      const phoneDigits = (patient.phoneNumber || '').replace(/\D/g, '');
+      const matchesIdentity = searchableText.includes(normalizedSearch)
+        || (normalizedDigits.length > 0 && (phoneDigits.includes(normalizedDigits) || birthDateDigits.includes(normalizedDigits)));
       const visitDate = new Date(patient.appointment.date).getTime();
       const ageInDays = (Date.now() - visitDate) / 86400000;
       const matchesDate = dateFilter === 'all' || (Number.isFinite(ageInDays) && ageInDays <= Number(dateFilter));
       const matchesVisits = visitFilter === 'all' ||
         (visitFilter === 'repeat' ? patient.consultationCount >= 2 : patient.consultationCount === 1);
-      return searchableText.includes(normalizedSearch) && matchesDate && matchesVisits;
+      return matchesIdentity && matchesDate && matchesVisits;
     })
     .sort((a, b) => {
       if (sortBy === 'oldest') return new Date(a.appointment.date).getTime() - new Date(b.appointment.date).getTime();
@@ -137,7 +152,14 @@ export function PatientSearchModal({ isOpen, onClose, appointments, onSelectPati
               >
                 <span className="flex items-center gap-3 min-w-0">
                   <UserRound className="w-5 h-5 shrink-0 text-indigo-600" />
-                  <span className="truncate font-medium">{patient.firstName} {patient.lastName}</span>
+                  <span className="min-w-0">
+                    <span className="block truncate font-medium">{patient.firstName} {patient.lastName}</span>
+                    <span className="mt-1 block truncate text-xs text-slate-500">
+                      {patient.dateOfBirth ? t('dateOfBirth') + ': ' + format(new Date(patient.dateOfBirth), 'dd/MM/yyyy', { locale: fr }) : ''}
+                      {patient.dateOfBirth && patient.phoneNumber ? ' · ' : ''}
+                      {patient.phoneNumber ? t('phoneNumber') + ': ' + patient.phoneNumber : ''}
+                    </span>
+                  </span>
                 </span>
                 <span className="text-xs text-slate-500 shrink-0">
                   {t('consultationCount', { count: patient.consultationCount })} · {t('lastAppointmentDate', { date: format(new Date(patient.appointment.date), 'dd/MM/yyyy', { locale: fr }) })}

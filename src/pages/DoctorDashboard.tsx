@@ -47,6 +47,7 @@ export function DoctorDashboard() {
   const { t, i18n } = useTranslation();
   const location = useLocation();
   const { user, isAuthenticated } = useAuthStore();
+  const doctorId = user?.data?.id;
   const [appointments, setAppointments] = useState<ExtendedAppointment[]>([]);
   const [followUpAppointments, setFollowUpAppointments] = useState<ExtendedAppointment[]>([]);
   const [allAppointments, setAllAppointments] = useState<ExtendedAppointment[]>([]);
@@ -445,17 +446,27 @@ export function DoctorDashboard() {
   );
 
   useEffect(() => {
+    if (!doctorId || !isAuthenticated) return;
     fetchAppointments();
     fetchAvailability();
     fetchOperationalOverview();
 
     const intervalId = window.setInterval(fetchAppointments, 5000);
-    const overviewIntervalId = window.setInterval(fetchOperationalOverview, 30000);
+    const overviewIntervalId = window.setInterval(fetchOperationalOverview, 5000);
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        void fetchAppointments();
+        void fetchAvailability();
+        void fetchOperationalOverview();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       window.clearInterval(intervalId);
       window.clearInterval(overviewIntervalId);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
     };
-  }, []);
+  }, [doctorId, isAuthenticated]);
 
   return (
     <div className={`min-h-screen bg-slate-50 px-4 py-6 text-slate-900 dark:bg-slate-950 dark:text-slate-100 sm:px-6 lg:px-8 ${i18n.language === 'ar' ? 'text-right' : 'text-left'}`} dir={i18n.language === 'ar' ? 'rtl' : 'ltr'}>
