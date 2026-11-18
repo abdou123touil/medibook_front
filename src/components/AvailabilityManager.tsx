@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import { apiFetch } from "../lib/api";
-import { format, addDays, isSameDay } from 'date-fns';
+import { format, addDays, startOfWeek } from 'date-fns';
 import { ar, enUS, fr } from 'date-fns/locale';
-import { Calendar as CalendarIcon, Plus, X, Ban, Repeat } from 'lucide-react';
+import { Calendar as CalendarIcon, Plus, X, Ban, Repeat, Sun } from 'lucide-react';
 import clsx from 'clsx';
 import { useAuthStore } from '../store/auth';
 import { Appointment } from '../types';
@@ -21,9 +21,39 @@ interface DoctorAbsence {
   reason?: string;
 }
 
+const DOCTOR_TIME_ZONE = 'Africa/Tunis';
+
+function getDoctorDateKey(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: DOCTOR_TIME_ZONE,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.year}-${values.month}-${values.day}`;
+}
+
+function getDoctorTimeKey(date: Date) {
+  const parts = new Intl.DateTimeFormat('en-GB', {
+    timeZone: DOCTOR_TIME_ZONE,
+    hour: '2-digit',
+    minute: '2-digit',
+    hourCycle: 'h23',
+  }).formatToParts(date);
+  const values = Object.fromEntries(parts.map(({ type, value }) => [type, value]));
+  return `${values.hour}:${values.minute}`;
+}
+
+function getDoctorCalendarDate(date: Date) {
+  const [year, month, day] = getDoctorDateKey(date).split('-').map(Number);
+  return new Date(year, month - 1, day, 12);
+}
+
 export function AvailabilityManager({ onUpdateAvailability, appointments }: AvailabilityManagerProps) {
-  const [selectedDate, setSelectedDate] = useState(new Date());
   const [currentTime, setCurrentTime] = useState(() => new Date());
+  const [selectedDate, setSelectedDate] = useState(() => getDoctorCalendarDate(new Date()));
+  const [sundaySetupDate, setSundaySetupDate] = useState<string | null>(null);
   const [availability, setAvailability] = useState<{ [key: string]: string[] }>({});
   const [isAbsenceModalOpen, setIsAbsenceModalOpen] = useState(false);
   const [absenceStartDate, setAbsenceStartDate] = useState('');
@@ -38,11 +68,32 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
   const dateLocale = i18n.language.startsWith('ar') ? ar : i18n.language.startsWith('en') ? enUS : fr;
 
   useEffect(() => {
-    const interval = window.setInterval(() => setCurrentTime(new Date()), 30_000);
-    return () => window.clearInterval(interval);
+    const refreshCurrentTime = () => setCurrentTime(new Date());
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === 'visible') refreshCurrentTime();
+    };
+    const interval = window.setInterval(refreshCurrentTime, 10_000);
+    window.addEventListener('focus', refreshCurrentTime);
+    document.addEventListener('visibilitychange', refreshWhenVisible);
+    return () => {
+      window.clearInterval(interval);
+      window.removeEventListener('focus', refreshCurrentTime);
+      document.removeEventListener('visibilitychange', refreshWhenVisible);
+    };
   }, []);
 
-  const weekDays = [...Array(35)].map((_, i) => addDays(new Date(), i));
+  const todayKey = getDoctorDateKey(currentTime);
+  const currentDoctorTime = getDoctorTimeKey(currentTime);
+  const today = getDoctorCalendarDate(currentTime);
+  const calendarStart = startOfWeek(today, { weekStartsOn: 1 });
+  const weekDays = [...Array(35)].map((_, i) => addDays(calendarStart, i));
+
+  // If the dashboard stays open overnight, move the selection forward to the new day.
+  useEffect(() => {
+    if (format(selectedDate, 'yyyy-MM-dd') < todayKey) {
+      setSelectedDate(today);
+    }
+  }, [todayKey, selectedDate, today]);
 
   const timeSlots = [
     "08:00", "09:00", "10:00", "11:00", "12:00",
@@ -100,6 +151,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
 
   // Toggle time slot availability
   const toggleTimeSlot = async (time: string) => {
+    if (isTimeSlotDisabled(time) || (isSunday && !sundayAvailabilityEnabled)) return;
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
     const currentSlots = availability[dateKey] || [];
     const newSlots = currentSlots.includes(time)
@@ -111,6 +163,8 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
       ...availability,
       [dateKey]: newSlots,
     };
+    const previousSundaySetupDate = sundaySetupDate;
+    if (isSunday) setSundaySetupDate(newSlots.length > 0 ? dateKey : null);
     setAvailability(updatedAvailability);
     onUpdateAvailability(updatedAvailability);
 
@@ -138,12 +192,14 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
       } else {
         
         toast.error(data.error || t('availabilityUpdateError'));
+        setSundaySetupDate(previousSundaySetupDate);
         setAvailability(availability);
         onUpdateAvailability(availability);
       }
     } catch (error) {
       
       toast.error(t('availabilityUpdateError'));
+      setSundaySetupDate(previousSundaySetupDate);
       setAvailability(availability);
       onUpdateAvailability(availability);
     }
@@ -252,12 +308,16 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
     }
   };
 
-  // Determine if a time slot should be disabled (past or booked)
+  const isTimeSlotInPast = (time: string) => {
+    const dateKey = format(selectedDate, 'yyyy-MM-dd');
+    if (dateKey < todayKey || (dateKey === todayKey && time <= currentDoctorTime)) return true;
+    return false;
+  };
+
+  // A past or already booked time cannot be changed.
   const isTimeSlotDisabled = (time: string) => {
     const dateKey = format(selectedDate, 'yyyy-MM-dd');
-    const todayKey = format(currentTime, 'yyyy-MM-dd');
-    if (dateKey < todayKey || (dateKey === todayKey && time <= format(currentTime, 'HH:mm'))) return true;
-
+    if (isTimeSlotInPast(time)) return true;
     return appointments.some(appointment => 
       format(new Date(appointment.date), 'yyyy-MM-dd') === dateKey &&
       appointment.time === time &&
@@ -280,6 +340,8 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
 
   const selectedDateKey = format(selectedDate, 'yyyy-MM-dd');
   const selectedDateSlots = availability && availability[selectedDateKey] ? availability[selectedDateKey] : [];
+  const isSunday = selectedDate.getDay() === 0;
+  const sundayAvailabilityEnabled = !isSunday || selectedDateSlots.length > 0 || sundaySetupDate === selectedDateKey;
   const affectedAppointmentsCount = appointments.filter((appointment) => {
     const appointmentDate = format(new Date(appointment.date), 'yyyy-MM-dd');
     return !!absenceStartDate && !!absenceEndDate
@@ -292,50 +354,74 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
   );
 
   return (
-    <div className="bg-white dark:bg-slate-950 border rounded-xl shadow-lg p-6">
-      <h2 className="text-xl font-semibold mb-6 flex items-center gap-2">
-        <CalendarIcon className="w-6 h-6 text-indigo-600" />
-        {t('manageAvailability')}
-      </h2>
+    <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+      <div className="bg-gradient-to-r from-indigo-700 via-indigo-600 to-violet-600 p-5 text-white sm:p-6">
+        <div className="flex items-center gap-3">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white/15 ring-1 ring-white/20">
+            <CalendarIcon className="h-6 w-6" />
+          </span>
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-[0.16em] text-indigo-100">{t('doctorDashboard')}</p>
+            <h2 className="mt-1 text-xl font-bold tracking-tight sm:text-2xl">{t('manageAvailability')}</h2>
+          </div>
+        </div>
+      </div>
 
-      <div className="grid grid-cols-7 gap-2 mb-6">
+      <div className="p-4 sm:p-5">
+      <div className="mb-6 grid grid-cols-7 gap-1.5 sm:gap-2">
         {weekDays.map((date) => (
-          <button
-            key={date.toISOString()}
-            onClick={() => setSelectedDate(date)}
-            disabled={format(date, 'yyyy-MM-dd') < format(currentTime, 'yyyy-MM-dd')}
-            className={clsx(
-              "p-2 rounded-xl text-sm font-medium transition-colors",
-              getAbsenceForDate(format(date, 'yyyy-MM-dd'))
-                ? "bg-red-600 text-white hover:bg-red-700"
-                : format(date, 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd')
-                ? "bg-indigo-600 text-white"
-                : "hover:bg-indigo-50 dark:hover:bg-slate-800",
-              format(date, 'yyyy-MM-dd') < format(currentTime, 'yyyy-MM-dd') && "cursor-not-allowed opacity-40",
-              isSameDay(date, new Date()) && "border border-indigo-600"
-            )}
-          >
-            <div className="text-xs mb-1">{format(date, 'EEE', { locale: dateLocale })}</div>
-            <div>{format(date, 'd', { locale: dateLocale })}</div>
-          </button>
+          (() => {
+            const dateKey = format(date, 'yyyy-MM-dd');
+            const isPastDay = dateKey < todayKey;
+            const isSelected = dateKey === selectedDateKey;
+            const absence = getAbsenceForDate(dateKey);
+            const isClosedSunday = date.getDay() === 0
+              && !(availability[dateKey] || []).length
+              && sundaySetupDate !== dateKey;
+            return (
+              <button
+                key={dateKey}
+                type="button"
+                onClick={() => setSelectedDate(date)}
+                disabled={isPastDay}
+                aria-pressed={isSelected}
+                title={isClosedSunday ? t('sundayAvailabilityClosed') : undefined}
+                className={clsx(
+                  'min-h-[66px] rounded-xl border px-1 py-2 text-center transition sm:min-h-[74px] sm:px-2',
+                  isSelected
+                    ? 'border-indigo-600 bg-indigo-600 text-white shadow-md shadow-indigo-600/20'
+                    : absence
+                      ? 'border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-900 dark:bg-red-950/40 dark:text-red-300'
+                      : isClosedSunday
+                        ? 'border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-900/70 dark:bg-amber-950/20 dark:text-amber-300'
+                      : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800',
+                  isPastDay && 'cursor-not-allowed border-slate-200 bg-slate-100 text-slate-400 opacity-45 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-600',
+                  dateKey === todayKey && !isSelected && 'ring-1 ring-inset ring-indigo-500'
+                )}
+              >
+                <span className="block text-[10px] font-semibold uppercase leading-4 sm:text-xs">{format(date, 'EEE', { locale: dateLocale })}</span>
+                <span className="mt-0.5 block text-base font-bold leading-5 sm:text-lg">{format(date, 'd', { locale: dateLocale })}</span>
+              </button>
+            );
+          })()
         ))}
       </div>
 
-      <div className="flex justify-between items-center mb-4">
-        <h3 className="text-lg font-medium">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <h3 className="text-base font-semibold text-slate-900 dark:text-white sm:text-lg">
           {t('slotsForDate', { date: format(selectedDate, 'EEEE d MMMM', { locale: dateLocale }) })}
         </h3>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <button
             onClick={repeatWeeklySchedule}
-            className="flex items-center gap-2 px-3 py-2 bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 text-sm"
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800"
           >
             <Repeat className="w-4 h-4" />
             {t('repeat4Weeks')}
           </button>
           <button
             onClick={openAbsenceModal}
-            className="flex items-center gap-2 px-3 py-2 bg-red-600 text-white rounded-xl hover:bg-red-700 text-sm"
+            className="inline-flex min-h-10 items-center gap-2 rounded-xl bg-rose-600 px-3 py-2 text-sm font-semibold text-white transition hover:bg-rose-700"
           >
             <Ban className="w-4 h-4" />
             {t('blockPeriod')}
@@ -343,7 +429,26 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
         </div>
       </div>
 
-      <div className="grid grid-cols-4 gap-2">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 lg:grid-cols-4">
+        {isSunday && (
+          <div className="col-span-full flex flex-col gap-3 rounded-xl border border-amber-200 bg-amber-50 p-4 dark:border-amber-900/70 dark:bg-amber-950/20 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-start gap-3">
+              <Sun className="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+              <p className="text-sm text-amber-900 dark:text-amber-100">
+                {sundayAvailabilityEnabled ? t('sundayAvailabilityEnabled') : t('sundayAvailabilityClosed')}
+              </p>
+            </div>
+            {!sundayAvailabilityEnabled && (
+              <button
+                type="button"
+                onClick={() => setSundaySetupDate(selectedDateKey)}
+                className="inline-flex min-h-10 shrink-0 items-center justify-center rounded-xl bg-amber-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-amber-700"
+              >
+                {t('enableSundayAvailability')}
+              </button>
+            )}
+          </div>
+        )}
         {timeSlots.map((time) => {
           const blockedAbsence = getAbsenceForDate(selectedDateKey);
           const isBooked = appointments.some(appointment =>
@@ -352,22 +457,29 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
             ['pending', 'accepted'].includes(appointment.status)
           );
           const patientName = getPatientName(time);
+          const isPast = isTimeSlotInPast(time);
+          const isDisabled = blockedAbsence
+            ? isPast
+            : isTimeSlotDisabled(time) || (isSunday && !sundayAvailabilityEnabled);
 
           return (
             <div key={time} className="relative group">
               <button
+                type="button"
                 onClick={() => blockedAbsence ? setSelectedAbsence(blockedAbsence) : toggleTimeSlot(time)}
-                disabled={!blockedAbsence && isTimeSlotDisabled(time)}
+                disabled={isDisabled}
+                aria-pressed={selectedDateSlots.includes(time)}
                 className={clsx(
-                  "p-2 rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2 w-full",
+                  'flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border px-2 py-2 text-sm font-semibold transition',
                   blockedAbsence
-                    ? "bg-red-600 text-white hover:bg-red-700"
-                    : selectedDateSlots.includes(time) && !isBooked
-                    ? "bg-indigo-600 text-white"
+                    ? 'border-rose-300 bg-rose-50 text-rose-700 dark:border-rose-900 dark:bg-rose-950/40 dark:text-rose-300'
                     : isBooked
-                    ? "bg-yellow-300 text-black"
-                    : "border border-slate-200 hover:bg-indigo-50",
-                  !blockedAbsence && isTimeSlotDisabled(time) && "opacity-50 cursor-not-allowed"
+                      ? 'border-amber-300 bg-amber-50 text-amber-800 dark:border-amber-900 dark:bg-amber-950/30 dark:text-amber-300'
+                      : selectedDateSlots.includes(time)
+                        ? 'border-indigo-600 bg-indigo-600 text-white shadow-sm shadow-indigo-600/20'
+                        : 'border-slate-200 bg-white text-slate-700 hover:border-indigo-300 hover:bg-indigo-50 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-200 dark:hover:bg-slate-800',
+                  isDisabled && 'cursor-not-allowed opacity-45 hover:bg-inherit',
+                  isPast && !blockedAbsence && 'border-slate-200 bg-slate-100 text-slate-400 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-600'
                 )}
               >
                 {time}
@@ -387,6 +499,7 @@ export function AvailabilityManager({ onUpdateAvailability, appointments }: Avai
             </div>
           );
         })}
+      </div>
       </div>
       {isAbsenceModalOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/50 px-4" role="presentation">
